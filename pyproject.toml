@@ -1,0 +1,38 @@
+[project]
+name = "realtime-conversation-llm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "en-core-web-sm>=3.8.0",
+    "fastrtc[vad]>=0.0.33",
+    "funasr>=1.2.7",
+    "kokoro>=0.9.4",
+    "misaki[zh]>=0.9.4",
+    "openai>=2.6.0",
+    "pip>=25.2",
+    "soundfile>=0.13.1",
+    "torch>=2.9.0",
+    "torchaudio>=2.9.0",
+]
+
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu" },
+]
+torchvision = [
+    { index = "pytorch-cpu" },
+]
+torchaudio = [
+    { index = "pytorch-cpu" },
+]
+en-core-web-sm = [
+    { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
