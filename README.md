@@ -79,10 +79,22 @@ uv pip install torch torchaudio funasr kokoro --torch-backend=auto
 > [!NOTE]
 > 如果你的电脑有NVIDIA显卡但没有安装CUDA，它也默认会安装CPU版本
 
+### 环境变量
+
+目前的`main.py`需要`DEEPSEEK_API_KEY`（如果你能联系到我，我可以单独发给你我的API key），设置好才能运行LLM
+
 ## 运行后端代码
+
+启动虚拟环境后，运行：
 
 ```bash
 python main.py
+```
+
+如果是`uv`也可以这样运行：
+
+```bash
+uv run main.py
 ```
 
 ## 杂项
