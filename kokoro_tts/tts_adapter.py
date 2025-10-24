@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import re
 from collections.abc import AsyncGenerator, Generator
 from dataclasses import dataclass
@@ -39,7 +40,7 @@ class TTSModel(Protocol[T]):
 
 @dataclass
 class KokoroV11ZhTTSOptions(TTSOptions):
-    voice: str = "kokoro_tts/zf_001.pt"
+    voice: str = os.path.join("kokoro_tts", "zf_001.pt")
     speed: float = 1.0
     lang: str = "zh"
     repo_id: str = "hexgrad/Kokoro-82M-v1.1-zh"
@@ -74,8 +75,8 @@ class KokoroV11ZhTTSModel(TTSModel):
             self._model = (
                 KModel(
                     repo_id=self.repo_id,
-                    config=self.data_dir + "/" + self.config,
-                    model=self.data_dir + "/" + self.model,
+                    config=os.path.join(self.data_dir, self.config),
+                    model=os.path.join(self.data_dir, self.model),
                 )
                 .to(self.device)
                 .eval()
@@ -99,12 +100,12 @@ class KokoroV11ZhTTSModel(TTSModel):
                 en_callable=en_callable,
             )
 
-            self._zh_pipeline.load_single_voice(self.data_dir + "/" + self.voice)
+            self._zh_pipeline.load_single_voice(os.path.join(self.data_dir, self.voice))
 
             logger.info(f"Model initialization completed, device: {self.device}")
 
             logger.info("Warming up model with test text...")
-            test_result = next(self._zh_pipeline("测试", voice=self.data_dir + "/" + self.voice, speed=1.0))
+            test_result = next(self._zh_pipeline("测试", voice=os.path.join(self.data_dir, self.voice), speed=1.0))
             logger.info("Model warmup completed")
         except ImportError as e:
             raise RuntimeError(

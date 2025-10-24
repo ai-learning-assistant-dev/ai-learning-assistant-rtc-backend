@@ -1,5 +1,6 @@
 import os
 
+from fastapi import FastAPI
 from fastrtc import ReplyOnPause, Stream
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
@@ -57,4 +58,10 @@ def realtime_conversation(audio):
 
 stream = Stream(ReplyOnPause(realtime_conversation), modality="audio", mode="send-receive")
 
-_ = stream.ui.launch()
+app = FastAPI()
+
+stream.mount(app)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
