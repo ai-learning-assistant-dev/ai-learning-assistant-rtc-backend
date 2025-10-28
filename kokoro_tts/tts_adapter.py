@@ -9,6 +9,7 @@ from typing import Protocol, TypeVar
 import numpy as np
 import torch
 from fastrtc.utils import async_aggregate_bytes_to_16bit
+from huggingface_hub import try_to_load_from_cache
 from numpy.typing import NDArray
 
 logging.basicConfig(
@@ -40,7 +41,7 @@ class TTSModel(Protocol[T]):
 
 @dataclass
 class KokoroV11ZhTTSOptions(TTSOptions):
-    voice: str = os.path.join("kokoro_tts", "zf_001.pt")
+    voice: str = "zf_001"
     speed: float = 1.0
     lang: str = "zh"
     repo_id: str = "hexgrad/Kokoro-82M-v1.1-zh"
@@ -54,17 +55,9 @@ class KokoroV11ZhTTSModel(TTSModel):
     def __init__(
         self,
         repo_id: str = "hexgrad/Kokoro-82M-v1.1-zh",
-        data_dir: str = "kokoro_tts",
-        config: str = "config.json",
-        model: str = "kokoro-v1_1-zh.pth",
-        voice: str = "zf_001.pt",
     ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.repo_id = repo_id
-        self.data_dir = data_dir
-        self.config = config
-        self.model = model
-        self.voice = voice
         self._initialize_model()
 
     def _initialize_model(self):
@@ -72,11 +65,15 @@ class KokoroV11ZhTTSModel(TTSModel):
         try:
             from kokoro import KModel, KPipeline
 
+            cached_model_path = try_to_load_from_cache(
+                self.repo_id, KModel.MODEL_NAMES[self.repo_id]
+            )
+            cached_config_path = try_to_load_from_cache(self.repo_id, "config.json")
             self._model = (
                 KModel(
                     repo_id=self.repo_id,
-                    config=os.path.join(self.data_dir, self.config),
-                    model=os.path.join(self.data_dir, self.model),
+                    config=cached_config_path,
+                    model=cached_model_path,
                 )
                 .to(self.device)
                 .eval()
@@ -100,12 +97,14 @@ class KokoroV11ZhTTSModel(TTSModel):
                 en_callable=en_callable,
             )
 
-            self._zh_pipeline.load_single_voice(os.path.join(self.data_dir, self.voice))
+            cached_voice_path = try_to_load_from_cache(self.repo_id, "zf_001.pt")
 
             logger.info(f"Model initialization completed, device: {self.device}")
 
             logger.info("Warming up model with test text...")
-            test_result = next(self._zh_pipeline("测试", voice=os.path.join(self.data_dir, self.voice), speed=1.0))
+            test_result = next(
+                self._zh_pipeline("测试", voice=cached_voice_path, speed=1.0)
+            )
             logger.info("Model warmup completed")
         except ImportError as e:
             raise RuntimeError(
@@ -134,13 +133,22 @@ class KokoroV11ZhTTSModel(TTSModel):
         sentences = self._split_text_into_sentences(text)
         audio_chunks = []
 
+        if options is not None:
+            cached_voice_path = try_to_load_from_cache(
+                repo_id=self.repo_id, filename=options.voice + ".pt"
+            )
         for i, sentence in enumerate(sentences):
             if not sentence.strip():
                 continue
 
-            generator = self._zh_pipeline(
-                sentence, voice=options.voice, speed=self._speed_callable
-            )
+            if cached_voice_path is None:
+                generator = self._zh_pipeline(
+                    sentence, voice=options.voice, speed=self._speed_callable
+                )
+            else:
+                generator = self._zh_pipeline(
+                    sentence, voice=cached_voice_path, speed=self._speed_callable
+                )
 
             result = next(generator)
             wav = result.audio
@@ -148,6 +156,10 @@ class KokoroV11ZhTTSModel(TTSModel):
             if torch.is_tensor(wav):
                 wav = wav.cpu().numpy()
 
+            if wav is None:
+                continue
+
+            wav = wav.astype(np.float32)
             if i > 0 and options.silence_between_paragraphs > 0:
                 silence = np.zeros(options.silence_between_paragraphs, dtype=np.float32)
                 wav = np.concatenate([silence, wav])
@@ -167,16 +179,29 @@ class KokoroV11ZhTTSModel(TTSModel):
 
         sentences = self._split_text_into_sentences(text)
 
+        if options is not None:
+            cached_voice_path = try_to_load_from_cache(
+                repo_id=self.repo_id, filename=options.voice + ".pt"
+            )
+
         for i, sentence in enumerate(sentences):
             if not sentence.strip():
                 continue
 
-            generator = self._zh_pipeline(
-                sentence, voice=options.voice, speed=self._speed_callable
-            )
+            if cached_voice_path is None:
+                generator = self._zh_pipeline(
+                    sentence, voice=options.voice, speed=self._speed_callable
+                )
+            else:
+                generator = self._zh_pipeline(
+                    sentence, voice=cached_voice_path, speed=self._speed_callable
+                )
 
             result = next(generator)
             wav = result.audio
+
+            if wav is None:
+                continue
 
             if torch.is_tensor(wav):
                 wav = wav.cpu().numpy()
