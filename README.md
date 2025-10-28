@@ -96,25 +96,3 @@ python main.py
 ```bash
 uv run main.py
 ```
-
-## 杂项
-
-### 离线化运行（不依赖远程模型下载）
-
-目前已经做到TTS和STT(ASR)离线化了，但是VAD暂时用的是FastRTC的内置实现，还需要联网（且需要可稳定访问PyPi的环境）
-
-#### 下载kokoro的权重文件
-
-> [!IMPORTANT]
-> 仓库已经打包好了这些权重文件，您不需要执行这些操作
-
-原本的代码实现了自动下载模型，但是每一次使用都会调用模型下载，导致国内网络环境下无法执行，故采用本地权重文件的形式保存
-
-- [模型权重kokoro-v1_1-zh.pth下载地址](https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh/resolve/main/kokoro-v1_1-zh.pth?download=true)
-- [中文声音权重zf_001.pt下载地址](https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh/resolve/main/voices/zf_001.pt?download=true)
-- [配置文件config.json下载地址](https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh/resolve/main/config.json?download=true)
-
-将它们放到`kokoro_tts`文件夹中，即可运行
-
-> [!NOTE]
-> 虽然权重这种大型二进制文件不建议用git管理，但是自动化管理总比手动下载方便
