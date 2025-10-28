@@ -7,6 +7,9 @@ from openai.types.chat import ChatCompletionMessageParam
 from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
 from funasr_stt.stt_adapter import LocalFunASR
 
+if os.getenv("DEEPSEEK_API_KEY") is None:
+    print("You should specify the DEEPSEEK_API_KEY environment variable to run this program.")
+
 deepseek_client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1"
 )
