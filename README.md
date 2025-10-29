@@ -74,7 +74,8 @@ uv sync --extra cu128   # NVIDIA GPU 用户
 uv sync --extra rocm64  # AMD GPU 用户
 ```
 
-> [!NOTE]
+> [!IMPORTANT]
+> AMD的ROCm目前只适配了Linux版本的，其他系统暂时无法运行。
 > 虽然我们支持安装AMD显卡版本的PyTorch，但你需要手动在系统安装`rocrand`才能运行本项目。
 >
 > 另外，ROCm对APU的iGPU适配比较欠缺，由于iGPU显存和系统内存共用而频繁触发页迁移，在780M上效果非常差，推理速度可能不如CPU。
