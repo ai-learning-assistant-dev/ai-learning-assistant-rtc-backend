@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import re
 from collections.abc import AsyncGenerator, Generator
 from dataclasses import dataclass
@@ -97,13 +96,11 @@ class KokoroV11ZhTTSModel(TTSModel):
                 en_callable=en_callable,
             )
 
-            cached_voice_path = try_to_load_from_cache(self.repo_id, "zf_001.pt")
-
             logger.info(f"Model initialization completed, device: {self.device}")
 
             logger.info("Warming up model with test text...")
             test_result = next(
-                self._zh_pipeline("测试", voice=cached_voice_path, speed=1.0)
+                self._zh_pipeline("测试", voice="zf_001", speed=1.0)
             )
             logger.info("Model warmup completed")
         except ImportError as e:
@@ -133,22 +130,13 @@ class KokoroV11ZhTTSModel(TTSModel):
         sentences = self._split_text_into_sentences(text)
         audio_chunks = []
 
-        if options is not None:
-            cached_voice_path = try_to_load_from_cache(
-                repo_id=self.repo_id, filename=options.voice + ".pt"
-            )
         for i, sentence in enumerate(sentences):
             if not sentence.strip():
                 continue
 
-            if cached_voice_path is None:
-                generator = self._zh_pipeline(
-                    sentence, voice=options.voice, speed=self._speed_callable
-                )
-            else:
-                generator = self._zh_pipeline(
-                    sentence, voice=cached_voice_path, speed=self._speed_callable
-                )
+            generator = self._zh_pipeline(
+                sentence, voice=options.voice, speed=self._speed_callable
+            )
 
             result = next(generator)
             wav = result.audio
@@ -179,23 +167,13 @@ class KokoroV11ZhTTSModel(TTSModel):
 
         sentences = self._split_text_into_sentences(text)
 
-        if options is not None:
-            cached_voice_path = try_to_load_from_cache(
-                repo_id=self.repo_id, filename=options.voice + ".pt"
-            )
-
         for i, sentence in enumerate(sentences):
             if not sentence.strip():
                 continue
 
-            if cached_voice_path is None:
-                generator = self._zh_pipeline(
-                    sentence, voice=options.voice, speed=self._speed_callable
-                )
-            else:
-                generator = self._zh_pipeline(
-                    sentence, voice=cached_voice_path, speed=self._speed_callable
-                )
+            generator = self._zh_pipeline(
+                sentence, voice=options.voice, speed=self._speed_callable
+            )
 
             result = next(generator)
             wav = result.audio

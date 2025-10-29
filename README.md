@@ -64,20 +64,36 @@ pip install -r requirements.txt
 
 ### 用uv安装依赖
 
-如果使用CPU版本的`PyTorch`，可以直接执行如下命令：
+#### 安装各种PyTorch（适配不同显卡）
+
+可以根据设备不同选择执行如下命令：
 
 ```bash
-uv sync
-```
-
-如果想更换`PyTorch`版本，`uv`提供了自动识别当前系统环境来决定安装的`PyTorch`版本的能力：
-
-```bash
-uv pip install torch torchaudio funasr kokoro --torch-backend=auto
+uv sync --extra cpu     # CPU 用户
+uv sync --extra cu128   # NVIDIA GPU 用户
+uv sync --extra rocm64  # AMD GPU 用户
 ```
 
 > [!NOTE]
-> 如果你的电脑有NVIDIA显卡但没有安装CUDA，它也默认会安装CPU版本
+> 虽然我们支持安装AMD显卡版本的PyTorch，但你需要手动在系统安装`rocrand`才能运行本项目。
+>
+> 另外，ROCm对APU的iGPU适配比较欠缺，由于iGPU显存和系统内存共用而频繁触发页迁移，在780M上效果非常差，推理速度可能不如CPU。
+
+如果已经安装过某个版本想用新版本覆盖，直接执行：
+
+```bash
+uv sync --extra [目标版本]    # 这里目标版本只有cpu, cu128, rocm64三种选项
+```
+
+这样就可以自动覆盖原本的安装依赖了
+
+> [!NOTE]
+> 如果覆盖后运行出现找不到`kokoro`或`misaki[zh]`包的报错，可以尝试：
+>
+> ```bash
+> rm -r .venv
+> uv sync --extra [目标版本]
+> ```
 
 ### 环境变量
 
