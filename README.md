@@ -17,7 +17,7 @@
 python -m venv [虚拟环境名]
 ```
 
-#### 安装PyTorch、FunASR和kokoro
+#### 根据硬件情况安装不同依赖
 
 如果是`python -m venv`创建的虚拟环境，则需要先激活虚拟环境：
 
@@ -30,41 +30,32 @@ source [虚拟环境名]/bin/activate.fish
 source [虚拟环境名]/bin/Activate.ps1
 ```
 
-用`pip`安装`PyTorch`、`FunASR`和`kokoro`时需要根据当前设备图形加速器类型决定安装哪个版本：
-
 ```bash
 # CPU版本：
-pip3 install torch torchvision funasr kokoro --index-url https://download.pytorch.org/whl/cpu
-# NVIDIA CUDA 12.8 版本（其他CUDA版本依次类推）：
-pip3 install torch torchvision funasr kokoro --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements-cpu.txt
+# NVIDIA CUDA 12.8 版本：
+pip install -r requirements-cuda.txt
 # AMD ROCm 6.4 版本：
-pip3 install torch torchvision funasr kokoro --index-url https://download.pytorch.org/whl/rocm6.4
+pip install -r requirements-rocm.txt
 ```
 
-#### 其他依赖
+#### 修改CUDA/ROCm版本
 
-在创建虚拟环境后可以启用虚拟环境、用`requirements.txt`自动下载依赖
+打开相应的`requirements-[cuda|rocm].txt`，修改下面这一行：
 
-先激活虚拟环境：
-
-```bash
-# 如果是bash/zsh:
-source [虚拟环境名]/bin/activate
-# 如果是fish:
-source [虚拟环境名]/bin/activate.fish
-# 如果是powershell:
-source [虚拟环境名]/bin/Activate.ps1
+```txt
+--extra-index-url https://download.pytorch.org/whl/[source]
 ```
 
-此后命令行会有虚拟环境的标识符，观察到后执行：
+例如CUDA13.0就修改为：
 
-```bash
-pip install -r requirements.txt
+```txt
+--extra-index-url https://download.pytorch.org/whl/cu130
 ```
 
 ### 用uv安装依赖
 
-#### 安装各种PyTorch（适配不同显卡）
+#### 根据硬件情况安装依赖
 
 可以根据设备不同选择执行如下命令：
 
@@ -75,7 +66,7 @@ uv sync --extra rocm64  # AMD GPU 用户
 ```
 
 > [!IMPORTANT]
-> AMD的ROCm目前只适配了Linux版本的，其他系统暂时无法运行。
+> AMD的ROCm目前**只适配了Linux版本**的，其他系统暂时无法运行。
 > 虽然我们支持安装AMD显卡版本的PyTorch，但你需要手动在系统安装`rocrand`才能运行本项目。
 >
 > 另外，ROCm对APU的iGPU适配比较欠缺，由于iGPU显存和系统内存共用而频繁触发页迁移，在780M上效果非常差，推理速度可能不如CPU。
