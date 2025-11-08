@@ -91,6 +91,7 @@ def realtime_conversation(audio):
                 ")",
                 "）",
                 "”",
+                "\n",
             )
         )
 
