@@ -1,4 +1,3 @@
-import os
 from typing import Generator, Union
 
 import requests
@@ -6,16 +5,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastrtc import AdditionalOutputs, ReplyOnPause, Stream
-from openai import OpenAI
 from pydantic import BaseModel
 
 from funasr_stt.stt_adapter import LocalFunASR
 from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
-
-if os.getenv("DEEPSEEK_API_KEY") is None:
-    print(
-        "You should specify the DEEPSEEK_API_KEY environment variable to run this program."
-    )
 
 
 class RTCMetaData:
@@ -56,10 +49,6 @@ def llm_response(message: str) -> Generator[str, None, None]:
                 print(f"Decode error: {e}, chunk: {chunk[:100]}")
                 yield ""
 
-
-deepseek_client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com/v1"
-)
 
 # ASR - FunASR or whisper.cpp
 stt_model = LocalFunASR()
