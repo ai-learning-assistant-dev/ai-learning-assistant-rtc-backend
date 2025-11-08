@@ -121,7 +121,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-stream.mount(app)
 
 
 class LLMMetaData(BaseModel):
@@ -144,13 +143,16 @@ def parse_input(metadata: LLMMetaData):
     return ""
 
 
-@app.post("/webrtc/text-stream")
+@app.get("/webrtc/text-stream")
 def rtc_text_stream(webrtc_id: str):
     async def output_stream():
         async for output in stream.output_stream(webrtc_id):
             yield f"data: {output.args[0]}\n\n"
 
     return StreamingResponse(output_stream(), media_type="text/event-stream")
+
+
+stream.mount(app)
 
 
 if __name__ == "__main__":
