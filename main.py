@@ -10,6 +10,18 @@ from pydantic import BaseModel
 from funasr_stt.stt_adapter import LocalFunASR
 from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
 
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    llm_stream_url: str = "http://localhost:3000/api/ai-chat/chat/stream"
+    app_port: int = 8989
+    app_host: str = "0.0.0.0"
+
+    class Config:
+        env_file = ".env"
+
+
+settings = Settings()
 
 class RTCMetaData:
     userId: str = ""
@@ -21,12 +33,9 @@ class RTCMetaData:
 rtc_metadata = RTCMetaData()
 
 
-LLM_STREAM_URL = "http://localhost:3000/api/ai-chat/chat/stream"
-
-
 def llm_response(message: str) -> Generator[str, None, None]:
     resp = requests.post(
-        LLM_STREAM_URL,
+        settings.llm_stream_url,
         json={
             "userId": rtc_metadata.userId,
             "sectionId": rtc_metadata.sectionId,
@@ -159,4 +168,4 @@ stream.mount(app)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8989)
+    uvicorn.run(app, host=settings.app_host, port=settings.app_port)
