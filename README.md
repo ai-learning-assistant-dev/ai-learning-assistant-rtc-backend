@@ -91,7 +91,7 @@ uv sync --extra [目标版本]    # 这里目标版本只有cpu, cu128, rocm64�
 
 目前的`main.py`需要`DEEPSEEK_API_KEY`（如果你能联系到我，我可以单独发给你我的API key），设置好才能运行LLM
 
-## 运行后端代码
+## 运行代码
 
 启动虚拟环境后，运行：
 
@@ -104,3 +104,19 @@ python main.py
 ```bash
 uv run main.py
 ```
+
+## 容器运行
+
+Docker 运行方式：
+
+```bash
+docker run -d -p 8989:8989 \
+    -e LLM_STREAM_URL=http://[AI学习助手启动器后端URL]:[AI学习助手启动器后端端口]/api/ai-chat/chat/stream \
+    yaqia/rtc-backend
+```
+
+### 端口配置
+
+- 默认容器内端口：8989
+- 可以通过`APP_PORT`修改
+- 运行时映射：`-p 8080:8989`或`-p 8080:$APP_PORT`

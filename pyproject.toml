@@ -3,7 +3,7 @@ name = "realtime-conversation-llm"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = "==3.12"
+requires-python = "==3.12.*"
 dependencies = [
     "en-core-web-sm>=3.8.0",
     "fastrtc[vad]>=0.0.33",

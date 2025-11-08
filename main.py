@@ -6,11 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastrtc import AdditionalOutputs, ReplyOnPause, Stream
 from pydantic import BaseModel
+from pydantic_settings import BaseSettings
 
 from funasr_stt.stt_adapter import LocalFunASR
 from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
 
-from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     llm_stream_url: str = "http://localhost:3000/api/ai-chat/chat/stream"
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
 
 class RTCMetaData:
     userId: str = ""
@@ -126,7 +127,7 @@ stream = Stream(
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"http://localhost:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
