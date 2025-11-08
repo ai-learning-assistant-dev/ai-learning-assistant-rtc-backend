@@ -87,10 +87,6 @@ uv sync --extra [目标版本]    # 这里目标版本只有cpu, cu128, rocm64�
 > uv sync --extra [目标版本]
 > ```
 
-### 环境变量
-
-目前的`main.py`需要`DEEPSEEK_API_KEY`（如果你能联系到我，我可以单独发给你我的API key），设置好才能运行LLM
-
 ## 运行代码
 
 启动虚拟环境后，运行：
@@ -114,6 +110,9 @@ docker run -d -p 8989:8989 \
     -e LLM_STREAM_URL=http://[AI学习助手启动器后端URL]:[AI学习助手启动器后端端口]/api/ai-chat/chat/stream \
     yaqia/rtc-backend
 ```
+
+> [!NOTE]
+> 如果是默认docker网桥推荐使用172.17.0.1作为AI学习助手启动器后端URL，端口默认是3000
 
 ### 端口配置
 
