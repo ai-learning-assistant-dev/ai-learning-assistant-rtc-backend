@@ -99,8 +99,12 @@ class KokoroV11ZhTTSModel(TTSModel):
             logger.info(f"Model initialization completed, device: {self.device}")
 
             logger.info("Warming up model with test text...")
+            cached_config_voice = try_to_load_from_cache(self.repo_id, "voices/zf_001.pt")
+            if cached_config_voice is None:
+                cached_config_voice = "zf_001"
+
             test_result = next(
-                self._zh_pipeline("测试", voice="zf_001", speed=1.0)
+                    self._zh_pipeline("测试", voice=cached_config_voice, speed=1.0)
             )
             logger.info("Model warmup completed")
         except ImportError as e:
@@ -134,8 +138,12 @@ class KokoroV11ZhTTSModel(TTSModel):
             if not sentence.strip():
                 continue
 
+            cached_config_voice = try_to_load_from_cache(self.repo_id, f"voices/{options.voice}.pt")
+            if cached_config_voice is None:
+                cached_config_voice = options.voice
+
             generator = self._zh_pipeline(
-                sentence, voice=options.voice, speed=self._speed_callable
+                sentence, voice=cached_config_voice, speed=self._speed_callable
             )
 
             result = next(generator)
@@ -171,8 +179,12 @@ class KokoroV11ZhTTSModel(TTSModel):
             if not sentence.strip():
                 continue
 
+            cached_config_voice = try_to_load_from_cache(self.repo_id, f"voices/{options.voice}.pt")
+            if cached_config_voice is None:
+                cached_config_voice = options.voice
+
             generator = self._zh_pipeline(
-                sentence, voice=options.voice, speed=self._speed_callable
+                sentence, voice=cached_config_voice, speed=self._speed_callable
             )
 
             result = next(generator)
