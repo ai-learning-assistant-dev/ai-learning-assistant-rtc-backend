@@ -67,7 +67,8 @@ tts_model = get_kokoro_v11_zh_model()
 
 def realtime_conversation(audio):
     message = stt_model.stt(audio).strip()
-    if not message or len(message) < 2:
+    # 排除掉一个字的情况（一个字一般有标点符号所以长度为2）
+    if not message or len(message) < 3:
         return
 
     print("PROMPT:", message)
@@ -76,14 +77,13 @@ def realtime_conversation(audio):
 
     result = ""
     buffer = ""
+    timestamp = 0
 
-    print("RESPONSE:", end="")
+    print("RESPONSE: ", end="")
     for delta in response:
         buffer += delta
         result += delta
 
-        yield AdditionalOutputs(delta)
-        print(delta, end="", flush=True)
         # 碰到句号或停顿
         should_flush_by_punctuation = buffer.endswith(
             (
@@ -105,12 +105,18 @@ def realtime_conversation(audio):
             )
         )
 
-        if buffer and should_flush_by_punctuation:
+        org_timestamp = timestamp
+        # 至少两个字才会开始读，不然就很容易读出来效果很奇怪
+        if len(buffer.strip()) >= 3 and should_flush_by_punctuation:
             for chunk in tts_model.stream_tts_sync(buffer):
+                timestamp += len(chunk[1]) / chunk[0]
                 yield chunk
+            print("[TIME]:", org_timestamp, buffer, flush=True)
+            yield AdditionalOutputs(buffer)
             buffer = ""  # 清空继续积累
 
     if buffer:
+        print(buffer, end="", flush=True)
         yield AdditionalOutputs(buffer)
         for chunk in tts_model.stream_tts_sync(buffer):
             yield chunk
