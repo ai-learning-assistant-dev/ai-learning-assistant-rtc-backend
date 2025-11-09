@@ -1,3 +1,4 @@
+import json
 from typing import Generator, Union
 
 import requests
@@ -71,7 +72,8 @@ def realtime_conversation(audio):
     if not message or len(message) < 3:
         return
 
-    print("PROMPT:", message)
+    # print("REQUEST:", message)
+    yield AdditionalOutputs(message)
 
     response = llm_response(message)
 
@@ -79,7 +81,7 @@ def realtime_conversation(audio):
     buffer = ""
     timestamp = 0
 
-    print("RESPONSE: ", end="")
+    # print("RESPONSE: ", end="")
     for delta in response:
         buffer += delta
         result += delta
@@ -105,23 +107,20 @@ def realtime_conversation(audio):
             )
         )
 
-        org_timestamp = timestamp
         # 至少两个字才会开始读，不然就很容易读出来效果很奇怪
         if len(buffer.strip()) >= 3 and should_flush_by_punctuation:
+            # print("[TIME]:", timestamp, buffer, flush=True)
+            yield AdditionalOutputs(timestamp, buffer)
             for chunk in tts_model.stream_tts_sync(buffer):
                 timestamp += len(chunk[1]) / chunk[0]
                 yield chunk
-            print("[TIME]:", org_timestamp, buffer, flush=True)
-            yield AdditionalOutputs(buffer)
             buffer = ""  # 清空继续积累
 
     if buffer:
-        print(buffer, end="", flush=True)
-        yield AdditionalOutputs(buffer)
+        # print("[TIME]:", timestamp, buffer, flush=True)
+        yield AdditionalOutputs(timestamp, buffer)
         for chunk in tts_model.stream_tts_sync(buffer):
             yield chunk
-
-    print()
 
 
 stream = Stream(
@@ -164,7 +163,18 @@ def parse_input(metadata: LLMMetaData):
 def rtc_text_stream(webrtc_id: str):
     async def output_stream():
         async for output in stream.output_stream(webrtc_id):
-            yield f"data: {output.args[0]}\n\n"
+            if len(output.args) == 1:
+                # 用户输入没有时间戳
+                payload = {"type": "request", "timestamp": "", "text": output.args[0]}
+            else:
+                # 时间戳单位是秒
+                payload = {
+                    "type": "response",
+                    "timestamp": output.args[0],
+                    "text": output.args[1],
+                }
+            print("payload =", payload)
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(output_stream(), media_type="text/event-stream")
 
