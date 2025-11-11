@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from funasr_stt.stt_adapter import LocalFunASR
+from funasr_vad.vad_adapter import FSMNVad
 from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
 
 
@@ -124,7 +125,7 @@ def realtime_conversation(audio):
 
 
 stream = Stream(
-    ReplyOnPause(realtime_conversation),
+    ReplyOnPause(realtime_conversation, model=FSMNVad()),
     modality="audio",
     mode="send-receive",
 )
