@@ -5,7 +5,7 @@ import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from fastrtc import AdditionalOutputs, ReplyOnPause, Stream
+from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
@@ -14,7 +14,7 @@ from funasr_vad.vad_adapter import FSMNVad
 from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
 
 
-class Settings(BaseSettings):
+class EnvVar(BaseSettings):
     llm_stream_url: str = "http://localhost:3000/api/ai-chat/chat/stream"
     app_port: int = 8989
     app_host: str = "0.0.0.0"
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
         env_file = ".env"
 
 
-settings = Settings()
+envs = EnvVar()
 
 
 class RTCMetaData:
@@ -38,12 +38,14 @@ rtc_metadata = RTCMetaData()
 
 def llm_response(message: str) -> Generator[str, None, None]:
     resp = requests.post(
-        settings.llm_stream_url,
+        envs.llm_stream_url,
         json={
             "userId": rtc_metadata.userId,
             "sectionId": rtc_metadata.sectionId,
             "personaId": rtc_metadata.personaId,
             "sessionId": rtc_metadata.sessionId,
+            "useAudio": True,
+            "ttsOption": "kokoro",
             "message": message,
         },
         stream=True,
@@ -69,8 +71,7 @@ tts_model = get_kokoro_v11_zh_model()
 
 def realtime_conversation(audio):
     message = stt_model.stt(audio).strip()
-    # 排除掉一个字的情况（一个字一般有标点符号所以长度为2）
-    if not message or len(message) < 3:
+    if not message or len(message) < 2:
         return
 
     # print("REQUEST:", message)
@@ -92,7 +93,7 @@ def realtime_conversation(audio):
             (
                 "。",
                 "，",
-                ".",
+                # ".",    # 英文句号经常用来当小数点，不能用来断句
                 ",",
                 "!",
                 "?",
@@ -125,7 +126,11 @@ def realtime_conversation(audio):
 
 
 stream = Stream(
-    ReplyOnPause(realtime_conversation, model=FSMNVad()),
+    ReplyOnPause(
+        realtime_conversation,
+        algo_options=AlgoOptions(started_talking_threshold=0.5),
+        model=FSMNVad(),
+    ),
     modality="audio",
     mode="send-receive",
 )
@@ -186,4 +191,4 @@ stream.mount(app)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host=settings.app_host, port=settings.app_port)
+    uvicorn.run(app, host=envs.app_host, port=envs.app_port)

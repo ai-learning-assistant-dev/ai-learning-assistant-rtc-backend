@@ -12,7 +12,8 @@ from huggingface_hub import try_to_load_from_cache
 from numpy.typing import NDArray
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="[TTS]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class KokoroV11ZhTTSOptions(TTSOptions):
     lang: str = "zh"
     repo_id: str = "hexgrad/Kokoro-82M-v1.1-zh"
     sample_rate: int = 24000
-    silence_between_paragraphs: int = 5000
+    silence_between_paragraphs: int = 0
     join_sentences: bool = True
 
 
@@ -99,12 +100,14 @@ class KokoroV11ZhTTSModel(TTSModel):
             logger.info(f"Model initialization completed, device: {self.device}")
 
             logger.info("Warming up model with test text...")
-            cached_config_voice = try_to_load_from_cache(self.repo_id, "voices/zf_001.pt")
+            cached_config_voice = try_to_load_from_cache(
+                self.repo_id, "voices/zf_001.pt"
+            )
             if cached_config_voice is None:
                 cached_config_voice = "zf_001"
 
             test_result = next(
-                    self._zh_pipeline("测试", voice=cached_config_voice, speed=1.0)
+                self._zh_pipeline("测试", voice=cached_config_voice, speed=1.0)
             )
             logger.info("Model warmup completed")
         except ImportError as e:
@@ -138,7 +141,9 @@ class KokoroV11ZhTTSModel(TTSModel):
             if not sentence.strip():
                 continue
 
-            cached_config_voice = try_to_load_from_cache(self.repo_id, f"voices/{options.voice}.pt")
+            cached_config_voice = try_to_load_from_cache(
+                self.repo_id, f"voices/{options.voice}.pt"
+            )
             if cached_config_voice is None:
                 cached_config_voice = options.voice
 
@@ -179,7 +184,9 @@ class KokoroV11ZhTTSModel(TTSModel):
             if not sentence.strip():
                 continue
 
-            cached_config_voice = try_to_load_from_cache(self.repo_id, f"voices/{options.voice}.pt")
+            cached_config_voice = try_to_load_from_cache(
+                self.repo_id, f"voices/{options.voice}.pt"
+            )
             if cached_config_voice is None:
                 cached_config_voice = options.voice
 

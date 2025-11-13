@@ -1,13 +1,21 @@
+import logging
 import math
 import tempfile
 import wave
 from dataclasses import dataclass
 
 import numpy as np
+import torch
 from fastrtc import PauseDetectionModel
 from fastrtc.utils import AudioChunk, audio_to_int16
 from funasr import AutoModel
 from numpy.typing import NDArray
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[VAD]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -18,7 +26,14 @@ class FSMNVadOptions:
 
 class FSMNVad(PauseDetectionModel):
     def __init__(self):
-        self.model = AutoModel(model="fsmn-vad", model_revision="v2.0.4")
+
+        if torch.cuda.is_available():
+            device = "cuda:0"
+            logger.info("CUDA device detected, using GPU acceleration")
+        else:
+            device = "cpu"
+            logger.info("No CUDA device detected, using CPU")
+        self.model = AutoModel(model="fsmn-vad", model_revision="v2.0.4", device=device)
 
     def warmup(self):
         for _ in range(10):
@@ -50,7 +65,7 @@ class FSMNVad(PauseDetectionModel):
                     wav_file.writeframes(audio_array.tobytes())
 
             result = self.model.generate(input=tmp_path, disable_pbar=True)
-            return self.convert_to_output(result[0]['value'], sample_rate)
+            return self.convert_to_output(result[0]["value"], sample_rate)
         except Exception:
             return math.inf, []
 
