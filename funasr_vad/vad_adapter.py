@@ -1,15 +1,15 @@
 import logging
 import math
-import tempfile
-import wave
 from dataclasses import dataclass
 
 import numpy as np
 import torch
 from fastrtc import PauseDetectionModel
-from fastrtc.utils import AudioChunk, audio_to_int16
+from fastrtc.utils import AudioChunk, audio_to_float32, audio_to_int16
 from funasr import AutoModel
 from numpy.typing import NDArray
+
+from funasr_utils.resample import resample_audio
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,7 +47,9 @@ class FSMNVad(PauseDetectionModel):
     ) -> tuple[float, list[AudioChunk]]:
         sample_rate, audio_array = audio
         try:
-            audio_array = audio_to_int16(audio_array)
+            audio_array = audio_to_float32(audio_array)
+            sample_rate, audio_array = resample_audio(audio_array, sample_rate)
+
             if audio_array.ndim > 1:
                 audio_array = (
                     audio_array[0]
@@ -55,16 +57,7 @@ class FSMNVad(PauseDetectionModel):
                     else audio_array[:, 0]
                 )
 
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
-                tmp_path = tmp_file.name
-
-                with wave.open(tmp_path, "wb") as wav_file:
-                    wav_file.setnchannels(1)
-                    wav_file.setsampwidth(2)
-                    wav_file.setframerate(sample_rate)
-                    wav_file.writeframes(audio_array.tobytes())
-
-            result = self.model.generate(input=tmp_path, disable_pbar=True)
+            result = self.model.generate(input=audio_array, disable_pbar=True)
             return self.convert_to_output(result[0]["value"], sample_rate)
         except Exception:
             return math.inf, []

@@ -130,6 +130,7 @@ stream = Stream(
         realtime_conversation,
         algo_options=AlgoOptions(started_talking_threshold=0.5),
         model=FSMNVad(),
+        input_sample_rate=16000,
     ),
     modality="audio",
     mode="send-receive",
