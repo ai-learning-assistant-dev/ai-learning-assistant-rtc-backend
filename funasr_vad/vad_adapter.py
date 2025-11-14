@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 from fastrtc import PauseDetectionModel
-from fastrtc.utils import AudioChunk, audio_to_float32, audio_to_int16
+from fastrtc.utils import AudioChunk, audio_to_float32
 from funasr import AutoModel
 from numpy.typing import NDArray
 

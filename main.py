@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Generator, Union
 
 import requests
@@ -71,8 +72,26 @@ tts_model = get_kokoro_v11_zh_model()
 
 def realtime_conversation(audio):
     message = stt_model.stt(audio).strip()
-    if not message or len(message) < 2:
+    if not message:
         return
+
+    meaningless_patterns = [
+        r"^嗯+。$",
+        r"^啊+。$",
+        r"^呃+。$",
+        r"^哦+。$",
+        r"^哎+。$",
+        r"^哼+。$",
+        r"^哈+。$",
+        r"^呵+。$",
+        r"^咳+。$",
+        r"^我。$",
+        r"^。$",
+    ]
+
+    for pattern in meaningless_patterns:
+        if re.match(pattern, message):
+            return
 
     # print("REQUEST:", message)
     yield AdditionalOutputs(message)
@@ -82,44 +101,50 @@ def realtime_conversation(audio):
     result = ""
     buffer = ""
     timestamp = 0
+    break_chars = {
+        "。",
+        "！",
+        "？",
+        "!",
+        "?",
+        "\n",
+        "，",
+        ",",
+        " ",
+        "…",
+        "—",
+        ")",
+        "）",
+        "”",
+    }
 
     # print("RESPONSE: ", end="")
     for delta in response:
         buffer += delta
         result += delta
 
-        # 碰到句号或停顿
-        should_flush_by_punctuation = buffer.endswith(
-            (
-                "。",
-                "，",
-                # ".",    # 英文句号经常用来当小数点，不能用来断句
-                ",",
-                "!",
-                "?",
-                " ",
-                "！",
-                "？",
-                "…",
-                "—",
-                ")",
-                "）",
-                "”",
-                "\n",
-            )
-        )
+        # 实时扫描缓冲区中的断句标点
+        while True:
+            found_break = False
+            for i, char in enumerate(buffer):
+                if char in break_chars:
+                    # 找到断句点，检查分段长度
+                    segment = buffer[: i + 1]
+                    if len(segment.strip()) >= 2:  # 最小长度限制
+                        yield AdditionalOutputs(timestamp, segment)
+                        for chunk in tts_model.stream_tts_sync(segment):
+                            timestamp += len(chunk[1]) / chunk[0]
+                            yield chunk
+                        buffer = buffer[i + 1 :]  # 更新缓冲区
+                        found_break = True
+                        break  # 重新扫描新的缓冲区
 
-        # 至少两个字才会开始读，不然就很容易读出来效果很奇怪
-        if len(buffer.strip()) >= 3 and should_flush_by_punctuation:
-            # print("[TIME]:", timestamp, buffer, flush=True)
-            yield AdditionalOutputs(timestamp, buffer)
-            for chunk in tts_model.stream_tts_sync(buffer):
-                timestamp += len(chunk[1]) / chunk[0]
-                yield chunk
-            buffer = ""  # 清空继续积累
+            # 如果没有找到合适的断句点，或者缓冲区太短，退出循环
+            if not found_break or len(buffer.strip()) < 2:
+                break
 
-    if buffer:
-        # print("[TIME]:", timestamp, buffer, flush=True)
+    # 处理剩余内容
+    if buffer.strip():
         yield AdditionalOutputs(timestamp, buffer)
         for chunk in tts_model.stream_tts_sync(buffer):
             yield chunk
@@ -129,7 +154,7 @@ stream = Stream(
     ReplyOnPause(
         realtime_conversation,
         algo_options=AlgoOptions(started_talking_threshold=0.5),
-        model=FSMNVad(),
+        # model=FSMNVad(),
         input_sample_rate=16000,
     ),
     modality="audio",
