@@ -2,6 +2,7 @@ import json
 import re
 from typing import Generator, Union
 
+import logging
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,32 +38,63 @@ class RTCMetaData:
 rtc_metadata = RTCMetaData()
 
 
+class LLMStreamError(Exception):
+    """Raised when LLM streaming request fails or returns an error status."""
+
+
+logging.basicConfig(level=logging.INFO)
+
+
 def llm_response(message: str) -> Generator[str, None, None]:
-    resp = requests.post(
-        envs.llm_stream_url,
-        json={
-            "userId": rtc_metadata.userId,
-            "sectionId": rtc_metadata.sectionId,
-            "personaId": rtc_metadata.personaId,
-            "sessionId": rtc_metadata.sessionId,
-            "useAudio": True,
-            "ttsOption": "kokoro",
-            "message": message,
-        },
-        stream=True,
-    )
+    try:
+        resp = requests.post(
+            envs.llm_stream_url,
+            json={
+                "userId": rtc_metadata.userId,
+                "sectionId": rtc_metadata.sectionId,
+                "personaId": rtc_metadata.personaId,
+                "sessionId": rtc_metadata.sessionId,
+                "useAudio": True,
+                "ttsOption": "kokoro",
+                "message": message,
+            },
+            stream=True,
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        logging.exception("Failed to connect to LLM stream")
+        raise LLMStreamError(f"LLM request failed: {e}")
 
     if resp.ok is False:
-        raise HTTPException(status_code=resp.status_code)
+        # try to include response body in the error message for debugging
+        body = ""
+        try:
+            body = resp.text
+        except Exception:
+            body = "<unable to read response body>"
+        logging.error("LLM server error %s: %s", resp.status_code, body[:200])
+        # raise a domain-specific error so callers can handle it gracefully
+        try:
+            resp.close()
+        except Exception:
+            pass
+        raise LLMStreamError(f"LLM server returned {resp.status_code}: {body}")
 
-    for chunk in resp.iter_content(chunk_size=None):
-        if chunk:
-            try:
-                decode_chunk = chunk.decode("utf-8")
-                yield decode_chunk
-            except UnicodeDecodeError as e:
-                print(f"Decode error: {e}, chunk: {chunk[:100]}")
-                yield ""
+    try:
+        for chunk in resp.iter_content(chunk_size=None):
+            if chunk:
+                try:
+                    decode_chunk = chunk.decode("utf-8")
+                    yield decode_chunk
+                except UnicodeDecodeError as e:
+                    logging.exception("Decode error from LLM stream")
+                    # yield nothing for this chunk but continue streaming
+                    yield ""
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
 
 
 # ASR - FunASR or whisper.cpp
@@ -119,29 +151,45 @@ def realtime_conversation(audio):
     }
 
     # print("RESPONSE: ", end="")
-    for delta in response:
-        buffer += delta
-        result += delta
+    try:
+        for delta in response:
+            buffer += delta
+            result += delta
 
-        # 实时扫描缓冲区中的断句标点
-        while True:
-            found_break = False
-            for i, char in enumerate(buffer):
-                if char in break_chars:
-                    # 找到断句点，检查分段长度
-                    segment = buffer[: i + 1]
-                    if len(segment.strip()) >= 2:  # 最小长度限制
-                        yield AdditionalOutputs(timestamp, segment)
-                        for chunk in tts_model.stream_tts_sync(segment):
-                            timestamp += len(chunk[1]) / chunk[0]
-                            yield chunk
-                        buffer = buffer[i + 1 :]  # 更新缓冲区
-                        found_break = True
-                        break  # 重新扫描新的缓冲区
+            # 实时扫描缓冲区中的断句标点
+            while True:
+                found_break = False
+                for i, char in enumerate(buffer):
+                    if char in break_chars:
+                        # 找到断句点，检查分段长度
+                        segment = buffer[: i + 1]
+                        if len(segment.strip()) >= 2:  # 最小长度限制
+                            yield AdditionalOutputs(timestamp, segment)
+                            for chunk in tts_model.stream_tts_sync(segment):
+                                timestamp += len(chunk[1]) / chunk[0]
+                                yield chunk
+                            buffer = buffer[i + 1 :]  # 更新缓冲区
+                            found_break = True
+                            break  # 重新扫描新的缓冲区
 
-            # 如果没有找到合适的断句点，或者缓冲区太短，退出循环
-            if not found_break or len(buffer.strip()) < 2:
-                break
+                # 如果没有找到合适的断句点，或者缓冲区太短，退出循环
+                if not found_break or len(buffer.strip()) < 2:
+                    break
+    except LLMStreamError as e:
+        logging.exception("LLM stream error while generating response")
+        # 有礼貌地告诉用户出错，并尝试通过 TTS 返回一条短消息
+        error_text = "抱歉，智能助理暂时无法响应，请稍后再试。"
+        yield AdditionalOutputs(timestamp, error_text)
+        for chunk in tts_model.stream_tts_sync(error_text):
+            yield chunk
+        return
+    except Exception:
+        logging.exception("Unexpected error during LLM streaming")
+        error_text = "发生未知错误，请稍后重试。"
+        yield AdditionalOutputs(timestamp, error_text)
+        for chunk in tts_model.stream_tts_sync(error_text):
+            yield chunk
+        return
 
     # 处理剩余内容
     if buffer.strip():
