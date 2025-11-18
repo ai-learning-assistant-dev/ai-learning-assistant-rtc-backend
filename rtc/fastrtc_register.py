@@ -4,13 +4,12 @@ from typing import Generator, Union
 
 import logging
 import requests
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from pydantic import BaseModel
 from env import envs
 
+from api import app
 from asr.stt.stt_adapter import LocalFunASR
 from asr.vad.vad_adapter import FSMNVad
 from tts.tts_adapter import get_kokoro_v11_zh_model
@@ -197,15 +196,6 @@ stream = Stream(
     mode="send-receive",
 )
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r"http://localhost:\d+",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 
 class LLMMetaData(BaseModel):
     userId: str
@@ -248,9 +238,3 @@ def rtc_text_stream(webrtc_id: str):
 
 
 stream.mount(app)
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host=envs.app_host, port=envs.app_port)

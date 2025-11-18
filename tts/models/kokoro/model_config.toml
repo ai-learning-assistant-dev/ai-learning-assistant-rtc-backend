@@ -1,0 +1,11 @@
+[model]
+name = "kokoro"
+repo_id = 'hexgrad/Kokoro-82M-v1.1-zh'
+
+[voice]
+default_voice = "zf_001"
+
+[paths]
+model_path = "model_download/kokoro-v1_1-zh.pth"
+config_path = "model_download/config.json"
+voice_path = "voices"

@@ -1,0 +1,12 @@
+[model]
+name = "index-tts"
+
+[voice]
+default_voice = "男性声音1"
+
+[performance]
+use_fast_infer = true
+
+[paths]
+model_path = "model_download"
+voice_path = "voices"
