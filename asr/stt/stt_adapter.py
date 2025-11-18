@@ -7,7 +7,7 @@ import torch
 from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.utils import audio_to_float32
 
-from funasr_utils.resample import resample_audio
+from ..funasr_utils.resample import resample_audio
 
 logging.basicConfig(
     level=logging.INFO,

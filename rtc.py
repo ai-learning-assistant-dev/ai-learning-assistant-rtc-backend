@@ -9,23 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings
+from env import envs
 
-from funasr_stt.stt_adapter import LocalFunASR
-from funasr_vad.vad_adapter import FSMNVad
-from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
-
-
-class EnvVar(BaseSettings):
-    llm_stream_url: str = "http://localhost:3000/api/ai-chat/chat/stream"
-    app_port: int = 8989
-    app_host: str = "0.0.0.0"
-
-    class Config:
-        env_file = ".env"
-
-
-envs = EnvVar()
+from asr.stt.stt_adapter import LocalFunASR
+from asr.vad.vad_adapter import FSMNVad
+from tts.tts_adapter import get_kokoro_v11_zh_model
 
 
 class RTCMetaData:
@@ -202,7 +190,7 @@ stream = Stream(
     ReplyOnPause(
         realtime_conversation,
         algo_options=AlgoOptions(started_talking_threshold=0.5),
-        # model=FSMNVad(),
+        model=FSMNVad(),
         input_sample_rate=16000,
     ),
     modality="audio",

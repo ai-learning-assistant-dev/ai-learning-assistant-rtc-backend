@@ -9,7 +9,7 @@ from fastrtc.utils import AudioChunk, audio_to_float32
 from funasr import AutoModel
 from numpy.typing import NDArray
 
-from funasr_utils.resample import resample_audio
+from ..funasr_utils.resample import resample_audio
 
 logging.basicConfig(
     level=logging.INFO,
