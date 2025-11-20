@@ -87,7 +87,7 @@ class FastRTCRegister:
                     "sessionId": self.metadata.sessionId,
                     "useAudio": True,
                     "ttsOption": "kokoro",
-                    "daily": False,
+                    "daily": False if len(self.metadata.sectionId) else True,
                     "modelName": self.metadata.modelName,
                 },
                 stream=True,
@@ -136,23 +136,23 @@ class FastRTCRegister:
         if not message:
             return
 
-        meaningless_patterns = [
-            r"^嗯+。$",
-            r"^啊+。$",
-            r"^呃+。$",
-            r"^哦+。$",
-            r"^哎+。$",
-            r"^哼+。$",
-            r"^哈+。$",
-            r"^呵+。$",
-            r"^咳+。$",
-            r"^我。$",
-            r"^。$",
-        ]
+        # meaningless_patterns = [
+        #     r"^嗯+。$",
+        #     r"^啊+。$",
+        #     r"^呃+。$",
+        #     r"^哦+。$",
+        #     r"^哎+。$",
+        #     r"^哼+。$",
+        #     r"^哈+。$",
+        #     r"^呵+。$",
+        #     r"^咳+。$",
+        #     r"^我。$",
+        #     r"^。$",
+        # ]
 
-        for pattern in meaningless_patterns:
-            if re.match(pattern, message):
-                return
+        # for pattern in meaningless_patterns:
+        #     if re.match(pattern, message):
+        #         return
 
         # print("REQUEST:", message)
         yield AdditionalOutputs(message)
