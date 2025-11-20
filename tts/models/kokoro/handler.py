@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 import logging
 import os
 from huggingface_hub import hf_hub_download
@@ -5,10 +6,16 @@ import torch
 from kokoro import KModel, KPipeline
 import numpy as np
 import toml
+from typing import Union, Callable
 
 from env import envs
 from .. import voice_util
-from ..model_interface import TTSModelInterface, ModelDetail, VoiceDetail
+from ..model_interface import (
+    TTSModelInterface,
+    RTCTTSModelInterface,
+    ModelDetail,
+    VoiceDetail,
+)
 
 
 class TTSModel(TTSModelInterface):
@@ -54,7 +61,12 @@ class TTSModel(TTSModelInterface):
             os.path.join(self.voice_dir, "voice_config.json")
         )
 
-    def synthesize(self, text: str, voice_type: str, speed: float) -> np.ndarray:
+    def synthesize(
+        self,
+        text: str,
+        voice_type: str,
+        speed: Union[float, Callable[[int], float]] = 1,
+    ) -> np.ndarray:
         voice = self.available_voices.get_voice_config(voice_type, self.default_voice)
         voice_file_path = os.path.join(self.voice_dir, voice.filename)
         if not os.path.exists(voice_file_path):
@@ -82,6 +94,7 @@ class TTSModel(TTSModelInterface):
             ],
             description="Kokoro 模型推理速度快",
             max_input_length=self.max_input_length(),
+            sample_rate=24000,  # kokoro 固定采样率为 24000
         )
 
     def max_input_length(self) -> int:
@@ -148,3 +161,55 @@ class TTSModel(TTSModelInterface):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         config = os.path.join(current_dir, "model_config.toml")
         return TTSModel(config)
+
+
+class RTCTTSModel(RTCTTSModelInterface):
+    def __init__(self):
+        self.kokoro_model = TTSModel.create()
+
+    async def stream_synthesize(
+        self,
+        text: str,
+        voice_type: str,
+        speed: Union[float, Callable[[int], float]] = 1,
+    ) -> AsyncGenerator[np.ndarray, None]:
+        if not text.strip():
+            yield np.array([], dtype=np.float32)
+            return
+
+        generator = self.kokoro_model.pipeline(text, voice_type, speed)
+
+        for result in generator:
+            wav = result.audio
+            if wav is None:
+                continue
+
+            if torch.is_tensor(wav):
+                wav = wav.cpu().numpy()
+            yield wav.astype(np.float32)
+
+    def synthesize(
+        self,
+        text: str,
+        voice_type: str,
+        speed: Union[float, Callable[[int], float]] = 1,
+    ) -> np.ndarray:
+        return self.kokoro_model.synthesize(text, voice_type, speed)
+
+    def get_model_info(self) -> ModelDetail:
+        return self.kokoro_model.get_model_info()
+
+    def max_input_length(self) -> int:
+        return self.kokoro_model.max_input_length()
+
+    @staticmethod
+    def download_model() -> str:
+        return TTSModel.download_model()
+
+    @staticmethod
+    def download_voices():
+        return TTSModel.download_voices()
+
+    @staticmethod
+    def create() -> "RTCTTSModelInterface":
+        return RTCTTSModel()

@@ -1,7 +1,13 @@
 [project]
-name = "realtime-conversation-llm"
+name = "ala-rtc-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "RTC backend for ai learning assistant, including STT and TTS service."
+authors = [
+    { name = "Ya Qia", email = "yyaqia@gmail.com" },
+    { name = "Nanyun" },
+    { name = "Memelank" },
+]
+
 readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
@@ -18,18 +24,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cpu = [
-    "torch>=2.9.0",
-    "torchaudio>=2.9.0",
-    "funasr>=1.2.7",
-    "kokoro>=0.9.4",
-]
+cpu = ["torch>=2.9.0", "torchaudio>=2.9.0", "funasr>=1.2.7", "kokoro>=0.9.4"]
 cu128 = [
     "torch>=2.9.0",
     "torchaudio>=2.9.0",
     "funasr>=1.2.7",
     "kokoro>=0.9.4",
-    "tts-webui.index-tts>=2.0.0"
+    "tts-webui.index-tts>=2.0.0",
 ]
 rocm64 = [
     "torch>=2.9.0",
@@ -40,13 +41,7 @@ rocm64 = [
 ]
 
 [tool.uv]
-conflicts = [
-  [
-    { extra = "cpu" },
-    { extra = "cu128" },
-    { extra = "rocm64" },
-  ],
-]
+conflicts = [[{ extra = "cpu" }, { extra = "cu128" }, { extra = "rocm64" }]]
 
 [tool.uv.sources]
 torch = [
@@ -60,7 +55,7 @@ torchaudio = [
     { index = "pytorch-rocm64", extra = "rocm64", marker = "sys_platform == 'linux'" },
 ]
 pytorch-triton-rocm = [
-    { index = "pytorch-rocm64", extra = "rocm64", marker = "sys_platform == 'linux'"}
+    { index = "pytorch-rocm64", extra = "rocm64", marker = "sys_platform == 'linux'" },
 ]
 en-core-web-sm = [
     { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" },

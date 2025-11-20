@@ -4,6 +4,7 @@ from indextts.infer import IndexTTS
 from huggingface_hub import hf_hub_download
 import numpy as np
 import torch
+from typing import Union, Callable
 
 from ..model_interface import TTSModelInterface, ModelDetail, VoiceDetail
 import toml
@@ -35,7 +36,12 @@ class TTSModel(TTSModelInterface):
         cfg_path = os.path.join(self.model_path, "config.yaml")
         self.tts = IndexTTS(model_dir=self.model_path, cfg_path=cfg_path, device=device)
 
-    def synthesize(self, text: str, voice_type: str, speed: float) -> np.ndarray:
+    def synthesize(
+        self,
+        text: str,
+        voice_type: str,
+        _: Union[float, Callable[[int], float]] = 1,    # speed is ignored in index-tts
+    ) -> np.ndarray:
         voice = self.available_voices.get_voice_config(voice_type, self.default_voice)
         if self.use_fast_infer:
             _, wav = self.tts.infer_fast(
@@ -61,6 +67,7 @@ class TTSModel(TTSModelInterface):
             ],
             description="IndexTTS 模型效果最优。支持音色克隆。建议在GPU环境使用。",
             max_input_length=self.max_input_length(),
+            sample_rate=24000,  # IndexTTS 固定采样率为 24000
         )
 
     def max_input_length(self) -> int:

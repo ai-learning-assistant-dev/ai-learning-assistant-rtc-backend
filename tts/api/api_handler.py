@@ -3,11 +3,10 @@ import io
 import logging
 import traceback
 from typing import List
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 import numpy as np
 from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
 from env import envs
 from ..models.model_manager import model_manager
 from .utils import is_text_too_complex, split_text_safely
