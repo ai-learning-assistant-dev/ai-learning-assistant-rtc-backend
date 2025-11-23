@@ -12,7 +12,7 @@ readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
     "click>=8.3.1",
-    "en-core-web-sm @ file://./en_core_web_sm-3.8.0-py3-none-any.whl",
+    "en-core-web-sm>=3.8.0",
     "fastrtc[vad]>=0.0.33",
     "misaki[zh]>=0.9.4",
     "openai>=2.6.0",
@@ -44,6 +44,7 @@ rocm64 = [
 conflicts = [[{ extra = "cpu" }, { extra = "cu128" }, { extra = "rocm64" }]]
 
 [tool.uv.sources]
+en-core-web-sm = { path = "./en_core_web_sm-3.8.0-py3-none-any.whl" }
 torch = [
     { index = "pytorch-cpu", extra = "cpu" },
     { index = "pytorch-cu128", extra = "cu128" },
@@ -76,3 +77,4 @@ explicit = true
 name = "pytorch-rocm64"
 url = "https://download.pytorch.org/whl/rocm6.4"
 explicit = true
+

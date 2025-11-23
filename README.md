@@ -94,13 +94,13 @@ uv sync --extra [目标版本]    # 这里目标版本只有cpu, cu128, rocm64�
 启动虚拟环境后，运行：
 
 ```bash
-python cli.py run-rtc
+python src/cli.py run-rtc
 ```
 
 如果是`uv`也可以这样运行：
 
 ```bash
-uv run cli.py run-rtc
+uv run src/cli.py run-rtc
 ```
 
 ## 容器运行
