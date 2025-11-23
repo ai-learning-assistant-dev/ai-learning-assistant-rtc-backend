@@ -5,6 +5,8 @@ wget https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-
 mkdir rtc_backend-x86_64-unknown-linux-gnu
 pushd rtc_backend-x86_64-unknown-linux-gnu
 git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+rm -rf .git
+mv pyproject.dist.toml pyproject.toml
 cp ../en_core_web_sm-3.8.0-py3-none-any.whl .
 wget -O uv.tar.gz https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-unknown-linux-gnu.tar.gz
 tar xf uv.tar.gz
@@ -18,6 +20,8 @@ rm -rf rtc_backend-x86_64-unknown-linux-gnu
 mkdir rtc_backend-x86_64-apple-darwin
 pushd rtc_backend-x86_64-apple-darwin
 git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+rm -rf .git
+mv pyproject.dist.toml pyproject.toml
 cp ../en_core_web_sm-3.8.0-py3-none-any.whl .
 wget -O uv.tar.gz https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-apple-darwin.tar.gz
 tar xf uv.tar.gz
@@ -31,6 +35,8 @@ rm -rf rtc_backend-x86_64-apple-darwin
 mkdir rtc_backend-aarch64-apple-darwin
 pushd rtc_backend-aarch64-apple-darwin
 git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+rm -rf .git
+mv pyproject.dist.toml pyproject.toml
 cp ../en_core_web_sm-3.8.0-py3-none-any.whl .
 wget -O uv.tar.gz https://github.com/astral-sh/uv/releases/latest/download/uv-aarch64-apple-darwin.tar.gz
 tar xf uv.tar.gz
@@ -44,6 +50,8 @@ rm -rf rtc_backend-aarch64-apple-darwin
 mkdir rtc_backend-x86_64-pc-windows-msvc
 pushd rtc_backend-x86_64-pc-windows-msvc
 git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+rm -rf .git
+mv pyproject.dist.toml pyproject.toml
 cp ../en_core_web_sm-3.8.0-py3-none-any.whl .
 wget -O uv.zip https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip
 unzip uv.zip
