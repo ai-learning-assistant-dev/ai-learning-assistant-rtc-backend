@@ -189,7 +189,7 @@ def run_rtc(stt_name: str, vad_name: str, tts_name: str, port: int, auto_detect:
     if auto_detect or not tts_name:
         if tts_name:
             click.echo("同时指定了TTS模型名称和自动检测，将优先使用自动检测")
-        tts_name = auto_select_model()
+        tts_name = auto_select_rtc_model()
         click.echo(f"自动选择的模型: {tts_name}")
     else:
         click.echo(f"手动指定的模型: {tts_name}")
