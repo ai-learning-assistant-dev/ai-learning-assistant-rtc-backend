@@ -16,3 +16,4 @@ uv.lock
 
 uv_executable/
 *.tar.gz
+*.zip
