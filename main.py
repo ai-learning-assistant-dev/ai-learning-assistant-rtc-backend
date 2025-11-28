@@ -52,11 +52,12 @@ def llm_response(message: str) -> Generator[str, None, None]:
             json={
                 "userId": rtc_metadata.userId,
                 "sectionId": rtc_metadata.sectionId,
+                "message": message,
                 "personaId": rtc_metadata.personaId,
                 "sessionId": rtc_metadata.sessionId,
                 "useAudio": True,
                 "ttsOption": "kokoro",
-                "message": message,
+                "reasoning": False,
             },
             stream=True,
             timeout=30,
