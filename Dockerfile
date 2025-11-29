@@ -1,7 +1,8 @@
 FROM ghcr.io/astral-sh/uv:debian-slim 
 
 RUN apt-get update && apt-get install -y git ffmpeg && cd / && \
-	git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend
+	git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend && \
+	cd /ai-learning-assistant-rtc-backend && git checkout stable && rm -rf .git && apt-get remove -y git && apt-get autoremove -y
 # CPU 版本镜像
 RUN cd /ai-learning-assistant-rtc-backend && uv sync --extra cpu && uv run model_cache.py
 
