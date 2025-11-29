@@ -1,0 +1,79 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+
+    permissions:
+      packages: write
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y wget unzip tar
+
+      - name: Run distribute.sh
+        run: |
+          chmod +x distribute.sh
+          ./distribute.sh
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RTC_RELEASE }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Realtime RTC Service ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Linux x86_64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RTC_RELEASE }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rtc_backend-x86_64-unknown-linux-gnu.tar.gz
+          asset_name: rtc_backend-x86_64-unknown-linux-gnu.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload macOS x86_64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RTC_RELEASE }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rtc_backend-x86_64-apple-darwin.tar.gz
+          asset_name: rtc_backend-x86_64-apple-darwin.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload macOS arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RTC_RELEASE }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rtc_backend-aarch64-apple-darwin.tar.gz
+          asset_name: rtc_backend-aarch64-apple-darwin.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Windows x86_64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RTC_RELEASE }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: rtc_backend-x86_64-pc-windows-msvc.zip
+          asset_name: rtc_backend-x86_64-pc-windows-msvc.zip
+          asset_content_type: application/zip
+
