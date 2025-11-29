@@ -7,6 +7,7 @@ distribute_unix() {
     mkdir "$target_dir"
     pushd "$target_dir" > /dev/null
     git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+    git checkout stable
     rm -rf .git
     mv pyproject.dist.toml pyproject.toml
     cp ../en_core_web_sm-3.8.0-py3-none-any.whl .
@@ -26,6 +27,7 @@ distribute_windows() {
     mkdir "$target_dir"
     pushd "$target_dir" > /dev/null
     git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+    git checkout stable
     rm -rf .git
     mv pyproject.dist.toml pyproject.toml
     cp ../en_core_web_sm-3.8.0-py3-none-any.whl .

@@ -5,6 +5,7 @@ function distribute_unix -a target_triple
     mkdir $target_dir
     pushd $target_dir
     git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+    git checkout stable
     rm -rf .git
     mv pyproject.dist.toml pyproject.toml
     cp ../en_core_web_sm-3.8.0-py3-none-any.whl .
@@ -21,6 +22,7 @@ function distribute_windows -a target_triple
     mkdir rtc_backend-$target_triple
     pushd rtc_backend-$target_triple
     git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend.git .
+    git checkout stable
     rm -rf .git
     mv pyproject.dist.toml pyproject.toml
     cp ../en_core_web_sm-3.8.0-py3-none-any.whl .
