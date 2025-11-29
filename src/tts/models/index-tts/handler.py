@@ -68,6 +68,7 @@ class TTSModel(TTSModelInterface):
             description="IndexTTS 模型效果最优。支持音色克隆。建议在GPU环境使用。",
             max_input_length=self.max_input_length(),
             sample_rate=24000,  # IndexTTS 固定采样率为 24000
+            is_rtc_model=False, # IndexTTS can not have streaming output
         )
 
     def max_input_length(self) -> int:

@@ -1,21 +1,59 @@
 import logging
 import math
-from dataclasses import dataclass
 
 import numpy as np
 import torch
+from attr import dataclass
 from fastrtc import PauseDetectionModel
+from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.utils import AudioChunk, audio_to_float32
-from funasr import AutoModel
+from funasr_utils.resample import resample_audio
 from numpy.typing import NDArray
 
-from ..funasr_utils.resample import resample_audio
+from asr.models.model_interface import ASRModelInterface
 
 logging.basicConfig(
     level=logging.INFO,
-    format="[VAD]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="[STT]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+from funasr import AutoModel
+
+
+# TODO: This should be converted into API call, rather than duplicate the model.
+class FastRTCSTTModel(STTModel):
+
+    def __init__(self, model: ASRModelInterface):
+        self.model = model
+
+    def stt(self, audio: tuple[int, NDArray[np.int16 | np.float32]]) -> str:
+        sample_rate, audio_array = audio
+        logger.info(
+            f"Received audio data: sample_rate={sample_rate}, data_type={type(audio_array)}, shape={getattr(audio_array, 'shape', 'N/A')}"
+        )
+
+        if self.model is None:
+            raise RuntimeError("ASR model not loaded, please initialize model first")
+
+        try:
+            audio_array = audio_to_float32(audio_array)
+            sample_rate, audio_array = resample_audio(audio_array, sample_rate, logger)
+
+            if audio_array.ndim > 1:
+                audio_array = (
+                    audio_array[0]
+                    if audio_array.shape[0] < audio_array.shape[1]
+                    else audio_array[:, 0]
+                )
+
+            logger.info(f"Processed audio length: {len(audio_array)}")
+
+            return self.model.raw_transcribe(audio_array, "zh")
+
+        except Exception as e:
+            logger.error(f"Speech transcription error: {e}")
+            return f"Transcription failed: {str(e)}"
 
 
 @dataclass

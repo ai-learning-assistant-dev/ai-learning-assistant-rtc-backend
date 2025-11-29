@@ -12,7 +12,7 @@ from env import envs
 from .. import voice_util
 from ..model_interface import (
     TTSModelInterface,
-    RTCTTSModelInterface,
+    AsyncTTSModelInterface,
     ModelDetail,
     VoiceDetail,
 )
@@ -95,6 +95,7 @@ class TTSModel(TTSModelInterface):
             description="Kokoro 模型推理速度快",
             max_input_length=self.max_input_length(),
             sample_rate=24000,  # kokoro 固定采样率为 24000
+            is_rtc_model=True,
         )
 
     def max_input_length(self) -> int:
@@ -163,7 +164,7 @@ class TTSModel(TTSModelInterface):
         return TTSModel(config)
 
 
-class RTCTTSModel(RTCTTSModelInterface):
+class AsyncTTSModel(AsyncTTSModelInterface):
     def __init__(self):
         self.kokoro_model = TTSModel.create()
 
@@ -211,5 +212,5 @@ class RTCTTSModel(RTCTTSModelInterface):
         return TTSModel.download_voices()
 
     @staticmethod
-    def create() -> "RTCTTSModelInterface":
-        return RTCTTSModel()
+    def create() -> "AsyncTTSModelInterface":
+        return AsyncTTSModel()

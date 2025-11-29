@@ -1,14 +1,15 @@
-import click
-from asr.stt.rtc_adapter import LocalFunASR
-from tts.models.model_manager import model_manager
-from api import app
-import uvicorn
 import logging
-import traceback
-import torch
 import subprocess
+import traceback
+from typing import Tuple
 
+import click
+import torch
+import uvicorn
+
+from api import app
 from env import envs
+from tts.models.model_manager import tts_model_manager
 
 
 def setup_logging(level):
@@ -66,7 +67,7 @@ def auto_select_model():
     return selected_model
 
 
-def auto_select_rtc_model():
+def auto_select_rtc_model() -> Tuple[str, str]:
     """
     根据CUDA环境自动选择合适的RTC TTS模型
     目前暂时只支持kokoro模型
@@ -75,13 +76,19 @@ def auto_select_rtc_model():
     cuda_available = detect_cuda_environment()
 
     if cuda_available:
-        selected_model = "kokoro"
-        logging.info(f"CUDA环境可用，自动选择RTC模型: {selected_model}")
+        selected_tts = "kokoro"
+        selected_stt = "SenseVoiceSmall"
+        logging.info(
+            f"CUDA环境可用，自动选择模型: TTS {selected_tts}; STT {selected_stt}"
+        )
     else:
-        selected_model = "kokoro"
-        logging.info(f"CUDA环境不可用，自动选择RTC CPU模型: {selected_model}")
+        selected_tts = "kokoro"
+        selected_stt = "SenseVoiceSmall"
+        logging.info(
+            f"CUDA环境不可用，自动选择模型: TTS {selected_tts}; STT {selected_stt}"
+        )
 
-    return selected_model
+    return selected_tts, selected_stt
 
 
 @click.group()
@@ -105,7 +112,7 @@ def download(model_names):
 
     for model_name in models:
         try:
-            path = model_manager.download_model(model_name)
+            path = tts_model_manager.download_model(model_name)
             click.echo(f"成功下载模型: {model_name}，路径: {path}")
         except Exception as e:
             click.echo(f"下载模型 {model_name} 失败: {str(e)}", err=True)
@@ -128,7 +135,7 @@ def download(model_names):
 def run_tts(model_names, port, auto_detect):
     """运行TTS服务命令，支持加载多个模型或自动选择模型"""
 
-    import tts.api.api_handler as _
+    import tts.api.api_handler as _  # noqa: F401
 
     # 如果启用了自动检测模式或未指定模型名称，则自动选择
     if auto_detect or not model_names:
@@ -143,7 +150,8 @@ def run_tts(model_names, port, auto_detect):
 
     for model_name in models:
         try:
-            model_manager.load_model(model_name)
+            # model_manager could figure out whether the model is a RTC model
+            tts_model_manager.load_model(model_name)
             click.echo(f"成功加载模型: {model_name}")
         except Exception as e:
             click.echo(f"加载模型 {model_name} 失败: {str(e)}", err=True)
@@ -181,25 +189,23 @@ def run_tts(model_names, port, auto_detect):
 )
 def run_rtc(stt_name: str, vad_name: str, tts_name: str, port: int, auto_detect: bool):
     """运行实时语音(RTC)服务命令，使用WebRTC进行音频传输"""
-    from rtc.fastrtc_register import fastrtc_register
-
     # 初始化完成fastrtc_register后再导入API处理器
-    import rtc.api.api_handler as _
+    import rtc.api.api_handler as _  # noqa: F401
+    from rtc.fastrtc_register import fastrtc_register as _  # noqa: F401, F811
 
-    if auto_detect or not tts_name:
-        if tts_name:
-            click.echo("同时指定了TTS模型名称和自动检测，将优先使用自动检测")
-        tts_name = auto_select_rtc_model()
-        click.echo(f"自动选择的模型: {tts_name}")
-    else:
-        click.echo(f"手动指定的模型: {tts_name}")
+    if auto_detect:
+        tts_name, stt_name = auto_select_rtc_model()
 
     try:
-        tts_model = model_manager.load_and_get_rtc_model(tts_name)
-        click.echo(f"成功加载模型: {tts_name}")
-        stt_model = LocalFunASR()
-        fastrtc_register.load_tts_model(tts_model)
-        fastrtc_register.load_stt_model(stt_model)
+        pass
+        # TODO: 应该是网络接口调用，而不是直接在当前进程加载
+        # if tts_model_manager.get_rtc_model(tts_name) is None:
+        #     tts_model_manager.load_rtc_model(tts_name)
+        #     click.echo(f"成功加载模型: {tts_name}")
+        # else:
+        #     click.echo(f"使用现有TTS模型")
+        # fastrtc_register.load_tts_model(tts_model_manager.get_rtc_model(tts_name))
+        # fastrtc_register.load_stt_model(stt_model_manager.get_model(stt_name))
     except Exception as e:
         click.echo(f"加载模型 {tts_name} 失败: {str(e)}", err=True)
         logging.error(traceback.format_exc())  # 打印完整栈信息

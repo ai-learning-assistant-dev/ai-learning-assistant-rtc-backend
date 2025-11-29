@@ -7,8 +7,10 @@ class EnvVar(BaseSettings):
     tts_port: int = 8000
     asr_port: int = 9000
     app_host: str = "0.0.0.0"
-    audio_sample_rate: int = 16000
-    default_stt_model: str = "kokoro"
+    tts_sample_rate: int = 16000
+    default_tts_model: str = "kokoro"
+    stt_sample_rate: int = 16000
+    default_stt_model: str = "SenseVoiceSmall"
     use_gpu: bool = True
 
     class Config:

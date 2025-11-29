@@ -19,6 +19,7 @@ class ModelDetail(BaseModel):
     voices: List[VoiceDetail]
     max_input_length: int
     sample_rate: int
+    is_rtc_model: bool
 
 
 class TTSModelInterface(ABC):
@@ -63,7 +64,7 @@ class TTSModelInterface(ABC):
         pass
 
 
-class RTCTTSModelInterface(TTSModelInterface):
+class AsyncTTSModelInterface(TTSModelInterface):
     @abstractmethod
     async def stream_synthesize(
         self,
@@ -84,7 +85,7 @@ class RTCTTSModelInterface(TTSModelInterface):
 
     @staticmethod
     @abstractmethod
-    def create() -> "RTCTTSModelInterface":
+    def create() -> "AsyncTTSModelInterface":
         """Initialize the model with configuration.
 
         Returns:

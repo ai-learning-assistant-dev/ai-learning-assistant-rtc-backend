@@ -6,10 +6,12 @@ import requests
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.pause_detection.protocol import PauseDetectionModel
+from asr.models.model_interface import ASRModelInterface as STTModelInterface
+from asr.rtc_adapter import FastRTCSTTModel
 from env import envs
 
-from tts.models.model_interface import RTCTTSModelInterface
-from tts.rtc_adapter import FastRTCTTSModel
+from tts.models.model_interface import AsyncTTSModelInterface
+from tts.rtc_adapter import RTCTTSAdapter
 
 
 class RTCLLMMetaData:
@@ -27,15 +29,19 @@ class LLMStreamError(Exception):
 class FastRTCRegister:
     def __init__(
         self,
-        tts_model: RTCTTSModelInterface | None = None,
-        stt_model: STTModel | None = None,
-        vad_model: PauseDetectionModel | None = None,
+        base_url: str,
+        tts_model: str | None = None,
+        stt_model: str | None = None,
+        vad_model: str | None = None,
     ):
         if tts_model is not None:
-            self.tts_model = FastRTCTTSModel(tts_model)
+            self.tts_model = RTCTTSAdapter(base_url, tts_model)
         else:
             self.tts_model = None
-        self.stt_model = stt_model
+        if stt_model is not None:
+            self.stt_model = FastRTCSTTModel(stt_model)
+        else:
+            self.stt_model = None
         self.vad_model = vad_model
         self.stream = Stream(
             ReplyOnPause(
@@ -49,11 +55,11 @@ class FastRTCRegister:
         )
         self.metadata = RTCLLMMetaData()
 
-    def load_tts_model(self, tts_model: RTCTTSModelInterface):
-        self.tts_model = FastRTCTTSModel(tts_model)
+    def load_tts_model(self, tts_model: AsyncTTSModelInterface):
+        self.tts_model = RTCTTSAdapter(tts_model)
 
-    def load_stt_model(self, stt_model: STTModel):
-        self.stt_model = stt_model
+    def load_stt_model(self, stt_model: STTModelInterface):
+        self.stt_model = FastRTCSTTModel(stt_model)
 
     def load_vad_model(self, vad_model: PauseDetectionModel):
         self.vad_model = vad_model
@@ -119,7 +125,7 @@ class FastRTCRegister:
                         decode_chunk = chunk.decode("utf-8")
                         yield decode_chunk
                     except UnicodeDecodeError as e:
-                        logging.exception("Decode error from LLM stream")
+                        logging.exception(f"Decode error from LLM stream: {e}")
                         # yield nothing for this chunk but continue streaming
                         yield ""
         finally:

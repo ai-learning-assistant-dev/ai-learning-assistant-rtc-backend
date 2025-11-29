@@ -1,0 +1,7 @@
+[model]
+name = "iic/SenseVoiceSmall"
+id = "iic/SenseVoiceSmall"
+hub = "ms"
+
+[download]
+path = "model_download"
