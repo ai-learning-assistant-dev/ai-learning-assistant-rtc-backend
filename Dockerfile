@@ -13,4 +13,4 @@ ENV APP_HOST=0.0.0.0
 EXPOSE 8989
 WORKDIR /ai-learning-assistant-rtc-backend
 
-CMD ["uv", "run", "main.py"]
+CMD ["uv", "run", "--no-sync", "main.py"]
