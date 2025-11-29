@@ -32,6 +32,7 @@ class LocalFunASR(STTModel):
 
         self.model = AutoModel(
             model="iic/SenseVoiceSmall",
+            vad_model="fsmn-vad",
             vad_kwargs={"max_single_segment_time": 30000},
             hub="ms",
             device=device,

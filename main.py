@@ -11,9 +11,9 @@ from fastapi.responses import StreamingResponse
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+from requests.models import ReadTimeoutError
 
 from funasr_stt.stt_adapter import LocalFunASR
-
 # from funasr_vad.vad_adapter import FSMNVad
 from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
 
@@ -62,7 +62,7 @@ def llm_response(message: str) -> Generator[str, None, None]:
                 "reasoning": False,
             },
             stream=True,
-            timeout=(10, 10),  # connect=10s, read timeout=10s
+            timeout=10,
         )
     except requests.RequestException as e:
         logging.exception("Failed to connect to LLM stream")
@@ -78,7 +78,7 @@ def llm_response(message: str) -> Generator[str, None, None]:
             if chunk:
                 last_activity = time.time()
                 try:
-                    yield chunk.decode("utf-8") 
+                    yield chunk.decode("utf-8")
                 except UnicodeDecodeError:
                     logging.exception("Decode error from LLM stream")
                     # yield nothing for this chunk but continue streaming
@@ -87,6 +87,9 @@ def llm_response(message: str) -> Generator[str, None, None]:
                 # If no chunk received for >20s → break
                 if time.time() - last_activity > 20:
                     raise LLMStreamError("大模型响应超时")
+    except TimeoutError or ConnectionError or ReadTimeoutError as e:
+        logging.exception("Connection error from LLM stream")
+        raise LLMStreamError(f"大模型响应失败：{e}")
     finally:
         resp.close()
 
@@ -136,7 +139,7 @@ def realtime_conversation(audio):
         "\n",
         "，",
         ",",
-        " ",
+        # " ",
         "…",
         "—",
         ")",
@@ -169,6 +172,12 @@ def realtime_conversation(audio):
                 # 如果没有找到合适的断句点，或者缓冲区太短，退出循环
                 if not found_break or len(buffer.strip()) < 2:
                     break
+        # 处理剩余内容
+        if buffer.strip():
+            yield AdditionalOutputs(timestamp, buffer)
+            for chunk in tts_model.stream_tts_sync(buffer):
+                yield chunk
+
     except LLMStreamError as e:
         logging.exception("LLM stream error while generating response")
         # 有礼貌地告诉用户出错，并尝试通过 TTS 返回一条短消息
@@ -176,20 +185,14 @@ def realtime_conversation(audio):
         yield AdditionalOutputs(timestamp, error_text)
         for chunk in tts_model.stream_tts_sync(error_text):
             yield chunk
-        return
     except Exception as e:
         logging.exception("Unexpected error during LLM streaming")
         error_text = f"发生未知错误，请稍后重试。错误信息：{e}。"
         yield AdditionalOutputs(timestamp, error_text)
         for chunk in tts_model.stream_tts_sync(error_text):
             yield chunk
-        return
-
-    # 处理剩余内容
-    if buffer.strip():
-        yield AdditionalOutputs(timestamp, buffer)
-        for chunk in tts_model.stream_tts_sync(buffer):
-            yield chunk
+    finally:
+        response.close()
 
 
 stream = Stream(
