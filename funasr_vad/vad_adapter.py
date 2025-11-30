@@ -11,11 +11,7 @@ from numpy.typing import NDArray
 
 from funasr_utils.resample import resample_audio
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[VAD]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+vad_logger = logging.getLogger("VAD")
 
 
 @dataclass
@@ -29,10 +25,10 @@ class FSMNVad(PauseDetectionModel):
 
         if torch.cuda.is_available():
             device = "cuda:0"
-            logger.info("CUDA device detected, using GPU acceleration")
+            vad_logger.info("CUDA device detected, using GPU acceleration")
         else:
             device = "cpu"
-            logger.info("No CUDA device detected, using CPU")
+            vad_logger.info("No CUDA device detected, using CPU")
         self.model = AutoModel(model="fsmn-vad", model_revision="v2.0.4", device=device)
 
     def warmup(self):

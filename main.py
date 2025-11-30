@@ -13,9 +13,15 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from requests.models import ReadTimeoutError
 
-from funasr_stt.stt_adapter import LocalFunASR
-# from funasr_vad.vad_adapter import FSMNVad
-from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(name)s]: %(levelname)s | %(asctime)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
+
+# from funasr_vad.vad_adapter import FSMNVad  # noqa: E402
+from funasr_stt.stt_adapter import LocalFunASR  # noqa: E402
+from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model  # noqa: E402
 
 
 class EnvVar(BaseSettings):
@@ -45,12 +51,8 @@ class LLMStreamError(Exception):
     """Raised when LLM streaming request fails or returns an error status."""
 
 
-logging.basicConfig(level=logging.INFO)
-
-
 def llm_response(message: str) -> Generator[str, None, None]:
     try:
-        print(envs.llm_stream_url)
         session = requests.Session()
         session.trust_env = False
         resp = session.post(
@@ -64,7 +66,7 @@ def llm_response(message: str) -> Generator[str, None, None]:
                 "useAudio": True,
                 "ttsOption": "kokoro",
                 "reasoning": False,
-                "daily":rtc_metadata.daily
+                "daily": rtc_metadata.daily,
             },
             stream=True,
             timeout=10,
@@ -268,4 +270,5 @@ stream.mount(app)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host=envs.app_host, port=envs.app_port)

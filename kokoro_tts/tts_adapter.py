@@ -7,15 +7,10 @@ from typing import Protocol, TypeVar
 
 import numpy as np
 import torch
-from fastrtc.utils import async_aggregate_bytes_to_16bit
 from huggingface_hub import try_to_load_from_cache
 from numpy.typing import NDArray
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[TTS]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+tts_logger = logging.getLogger("TTS")
 
 
 class TTSOptions:
@@ -61,7 +56,7 @@ class KokoroV11ZhTTSModel(TTSModel):
         self._initialize_model()
 
     def _initialize_model(self):
-        logger.info(f"Initializing model with repo_id: {self.repo_id}")
+        tts_logger.info(f"Initializing model with repo_id: {self.repo_id}")
         try:
             from kokoro import KModel, KPipeline
 
@@ -97,9 +92,9 @@ class KokoroV11ZhTTSModel(TTSModel):
                 en_callable=en_callable,
             )
 
-            logger.info(f"Model initialization completed, device: {self.device}")
+            tts_logger.info(f"Model initialization completed, device: {self.device}")
 
-            logger.info("Warming up model with test text...")
+            tts_logger.info("Warming up model with test text...")
             cached_config_voice = try_to_load_from_cache(
                 self.repo_id, "voices/zf_001.pt"
             )
@@ -109,13 +104,13 @@ class KokoroV11ZhTTSModel(TTSModel):
             test_result = next(
                 self._zh_pipeline("测试", voice=cached_config_voice, speed=1.0)
             )
-            logger.info("Model warmup completed")
+            tts_logger.info("Model warmup completed")
         except ImportError as e:
             raise RuntimeError(
                 "kokoro library is not installed. Please install it using 'pip install kokoro>=0.8.1 \"misaki[zh]>=0.8.1\"'."
             ) from e
         except Exception as e:
-            logger.warning(f"Model warmup failed: {e}, continuing anyway")
+            tts_logger.warning(f"Model warmup failed: {e}, continuing anyway")
 
     def _speed_callable(self, len_ps: int) -> float:
         speed = 0.8

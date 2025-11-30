@@ -2,20 +2,16 @@ import logging
 from typing import Tuple
 
 import numpy as np
-from numpy.typing import NDArray
 import torch
 from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.utils import audio_to_float32
+from numpy.typing import NDArray
 
 from funasr_utils.resample import resample_audio
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[STT]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+stt_logger = logging.getLogger("STT")
 
-from funasr import AutoModel
+from funasr import AutoModel  # noqa: E402
 
 
 class LocalFunASR(STTModel):
@@ -25,10 +21,10 @@ class LocalFunASR(STTModel):
 
         if torch.cuda.is_available():
             device = "cuda:0"
-            logger.info("CUDA device detected, using GPU acceleration")
+            stt_logger.info("CUDA device detected, using GPU acceleration")
         else:
             device = "cpu"
-            logger.info("No CUDA device detected, using CPU")
+            stt_logger.info("No CUDA device detected, using CPU")
 
         self.model = AutoModel(
             model="iic/SenseVoiceSmall",
@@ -39,9 +35,9 @@ class LocalFunASR(STTModel):
             disable_update=True,
         )
 
-    def stt(self, audio: tuple[int, NDArray[np.int16 | np.float32]]) -> str:
+    def stt(self, audio: Tuple[int, NDArray[np.int16 | np.float32]]) -> str:
         sample_rate, audio_array = audio
-        logger.info(
+        stt_logger.info(
             f"Received audio data: sample_rate={sample_rate}, data_type={type(audio_array)}, shape={getattr(audio_array, 'shape', 'N/A')}"
         )
 
@@ -50,7 +46,9 @@ class LocalFunASR(STTModel):
 
         try:
             audio_array = audio_to_float32(audio_array)
-            sample_rate, audio_array = resample_audio(audio_array, sample_rate, logger)
+            sample_rate, audio_array = resample_audio(
+                audio_array, sample_rate, stt_logger
+            )
 
             if audio_array.ndim > 1:
                 audio_array = (
@@ -59,7 +57,7 @@ class LocalFunASR(STTModel):
                     else audio_array[:, 0]
                 )
 
-            logger.info(f"Processed audio length: {len(audio_array)}")
+            stt_logger.info(f"Processed audio length: {len(audio_array)}")
 
             result = self.model.generate(
                 input=audio_array,
@@ -77,7 +75,7 @@ class LocalFunASR(STTModel):
             return parsed_text if parsed_text else ""
 
         except Exception as e:
-            logger.error(f"Speech transcription error: {e}")
+            stt_logger.error(f"Speech transcription error: {e}")
             return f"Transcription failed: {str(e)}"
 
     def _parse_funasr_output(self, raw_text: str) -> str:
@@ -97,18 +95,18 @@ class LocalFunASR(STTModel):
                 processing = match.group(4)
                 actual_text = match.group(5)
 
-                logger.debug(
+                stt_logger.debug(
                     f"Parse result - language: {language}, emotion: {emotion}, type: {speech_type}, processing: {processing}"
                 )
-                logger.debug(f"Extracted text: {actual_text}")
+                stt_logger.debug(f"Extracted text: {actual_text}")
 
                 return actual_text.strip()
             else:
-                logger.warning(
+                stt_logger.warning(
                     f"Could not parse funasr output format, returning original text: {raw_text}"
                 )
                 return raw_text
 
         except Exception as e:
-            logger.error(f"Error parsing funasr output: {e}")
+            stt_logger.error(f"Error parsing funasr output: {e}")
             return raw_text
