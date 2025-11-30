@@ -49,7 +49,10 @@ logging.basicConfig(level=logging.INFO)
 
 def llm_response(message: str) -> Generator[str, None, None]:
     try:
-        resp = requests.post(
+        print(envs.llm_stream_url)
+        session = requests.Session()
+        session.trust_env = False
+        resp = session.post(
             envs.llm_stream_url,
             json={
                 "userId": rtc_metadata.userId,
@@ -261,5 +264,4 @@ stream.mount(app)
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host=envs.app_host, port=envs.app_port)
