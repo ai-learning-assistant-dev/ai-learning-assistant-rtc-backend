@@ -1,15 +1,15 @@
+import logging
 import re
 from typing import Generator
 
-import logging
 import requests
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
-from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.pause_detection.protocol import PauseDetectionModel
+from fastrtc.speech_to_text.stt_ import STTModel
+
 from asr.models.model_interface import ASRModelInterface
 from asr.rtc_adapter import FastRTCASRModel
 from env import envs
-
 from tts.models.model_interface import AsyncTTSModelInterface
 from tts.rtc_adapter import RTCTTSAdapter
 
@@ -231,9 +231,6 @@ class FastRTCRegister:
             yield AdditionalOutputs(timestamp, buffer)
             for chunk in self.tts_model.stream_tts_sync(buffer):
                 yield chunk
-
-
-logging.basicConfig(level=logging.INFO)
 
 
 fastrtc_register = FastRTCRegister()

@@ -36,7 +36,7 @@ async def asr(
     audio_file: UploadFile = File(...),  # noqa: B008
     encode: bool = Query(default=True, description="Encode audio first through ffmpeg"),
     language: Union[str, None] = Query(default=None, description="语言代码，不指定时自动检测"),
-    output: Union[str, None] = Query(
+    output: str = Query(
         default="txt", enum=["txt", "vtt", "srt", "tsv", "json"]
     ),
 ):

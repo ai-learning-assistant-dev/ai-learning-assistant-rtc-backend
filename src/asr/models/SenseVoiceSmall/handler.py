@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 import numpy as np
 import toml
@@ -6,7 +7,12 @@ import torch
 from funasr import AutoModel
 from modelscope.hub.snapshot_download import snapshot_download
 
-from asr.models.model_interface import ASRModelInterface, ModelDetail, TranscribeData
+from asr.models.model_interface import (
+    ASRModelInterface,
+    ModelDetail,
+    Timestamp,
+    TranscribeData,
+)
 from env import envs
 
 
@@ -17,21 +23,19 @@ class ASRModel(ASRModelInterface):
         vad_path: VAD model path
         """
         import os
-        
+
         with open(config_path) as f:
             config = toml.load(f)
 
-        self.device = (
-            "cuda" if torch.cuda.is_available() and envs.use_gpu else "cpu"
-        )
+        self.device = "cuda" if torch.cuda.is_available() and envs.use_gpu else "cpu"
         self.vad_path = vad_path
         self.model_name = config["model"]["name"]
         self.model_hub = config["model"]["hub"]
-        
+
         # 检查本地模型目录是否存在
         current_dir = os.path.dirname(os.path.abspath(config_path))
         local_model_path = os.path.join(current_dir, config["download"]["path"])
-        
+
         # 如果本地模型目录存在，使用本地路径；否则使用模型名从hub下载
         if os.path.exists(local_model_path) and os.path.isdir(local_model_path):
             self.model_path = local_model_path
@@ -100,25 +104,27 @@ class ASRModel(ASRModelInterface):
 
         # SenseVoice通常不返回时间戳信息，创建一个包含全文的单个片段
         # 如果未来FunASR版本支持时间戳，可以在这里添加处理逻辑
-        segments = []
+        segments: List[Timestamp] = []
         if parsed_text:
-            segments.append({
-                "text": parsed_text,
-                "start": 0,
-                "end": 0,  # SenseVoice不提供时间戳
-                "words": []  # SenseVoice不提供词级时间戳
-            })
+            segments.append(
+                Timestamp(
+                    text=parsed_text,
+                    start=0,
+                    end=0,      # SenseVoice不提供时间戳
+                    words=[],   # SenseVoice不提供词级时间戳
+                )
+            )
 
         return TranscribeData(
             text=parsed_text,
             segments=segments,
-            language=detected_lang or language or "auto"
+            language=detected_lang or language or "auto",
         )
 
     def language_detection(self, audio: np.ndarray) -> tuple[str, float]:
         """
         检测音频的语言
-        
+
         Returns:
             tuple[str, float]: (语言代码, 置信度)
         """
@@ -141,7 +147,7 @@ class ASRModel(ASRModelInterface):
 
         raw_text = result[0].get("text", "")
         language = self._extract_language(raw_text)
-        
+
         # SenseVoice不直接提供置信度，我们设置一个默认值
         # 如果提取到了语言标记，置信度设为0.9，否则为0.0
         confidence = 0.9 if language else 0.0
@@ -162,7 +168,7 @@ class ASRModel(ASRModelInterface):
                 return match.group(1)
         except Exception as e:
             logging.error(f"Error extracting language: {e}")
-        
+
         return ""
 
     def _parse_funasr_output(self, raw_text: str) -> str:

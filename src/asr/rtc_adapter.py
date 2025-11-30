@@ -1,5 +1,6 @@
 import logging
 import math
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -7,18 +8,13 @@ from attr import dataclass
 from fastrtc import PauseDetectionModel
 from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.utils import AudioChunk, audio_to_float32
+from funasr import AutoModel
 from numpy.typing import NDArray
 
 from asr.funasr_utils.resample import resample_audio
 from asr.models.model_interface import ASRModelInterface
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[ASR]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-from funasr import AutoModel
+asr_logger = logging.getLogger("ASR")
 
 
 # TODO: This should be converted into API call, rather than duplicate the model.
@@ -27,9 +23,9 @@ class FastRTCASRModel(STTModel):
     def __init__(self, model: ASRModelInterface):
         self.model = model
 
-    def stt(self, audio: tuple[int, NDArray[np.int16 | np.float32]]) -> str:
+    def stt(self, audio: Tuple[int, NDArray[np.int16 | np.float32]]) -> str:
         sample_rate, audio_array = audio
-        logger.info(
+        asr_logger.info(
             f"Received audio data: sample_rate={sample_rate}, data_type={type(audio_array)}, shape={getattr(audio_array, 'shape', 'N/A')}"
         )
 
@@ -38,7 +34,9 @@ class FastRTCASRModel(STTModel):
 
         try:
             audio_array = audio_to_float32(audio_array)
-            sample_rate, audio_array = resample_audio(audio_array, sample_rate, logger)
+            sample_rate, audio_array = resample_audio(
+                audio_array, sample_rate, asr_logger
+            )
 
             if audio_array.ndim > 1:
                 audio_array = (
@@ -47,12 +45,12 @@ class FastRTCASRModel(STTModel):
                     else audio_array[:, 0]
                 )
 
-            logger.info(f"Processed audio length: {len(audio_array)}")
+            asr_logger.info(f"Processed audio length: {len(audio_array)}")
 
             return self.model.raw_transcribe(audio_array, "zh")
 
         except Exception as e:
-            logger.error(f"Speech transcription error: {e}")
+            asr_logger.error(f"Speech transcription error: {e}")
             return f"Transcription failed: {str(e)}"
 
 
@@ -66,11 +64,11 @@ class FSMNVad(PauseDetectionModel):
     def __init__(self):
 
         if torch.cuda.is_available():
-            device = "cuda:0"
-            logger.info("CUDA device detected, using GPU acceleration")
+            device = "cuda"
+            asr_logger.info("CUDA device detected, using GPU acceleration")
         else:
             device = "cpu"
-            logger.info("No CUDA device detected, using CPU")
+            asr_logger.info("No CUDA device detected, using CPU")
         self.model = AutoModel(model="fsmn-vad", model_revision="v2.0.4", device=device)
 
     def warmup(self):

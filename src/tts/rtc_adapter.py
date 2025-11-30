@@ -11,11 +11,7 @@ from numpy.typing import NDArray
 from tts.api.api_handler import AvailableModelsResponse, RTCTTSRequest
 from tts.models.model_interface import ModelDetail
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[TTS]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+tts_logger = logging.getLogger("TTS")
 
 
 @dataclass
@@ -74,7 +70,7 @@ class RTCTTSAdapter:
                 response.raise_for_status()
 
         except Exception as e:
-            logger.warning(f"Model warmup failed: {e}, continuing anyway")
+            tts_logger.warning(f"Model warmup failed: {e}, continuing anyway")
 
     @staticmethod
     def _speed_callable(len_ps: int) -> float:
@@ -110,7 +106,7 @@ class RTCTTSAdapter:
                     audio_data = np.frombuffer(chunk, dtype=np.int16)
                     audio_chunks.append(audio_data)
         except Exception as e:
-            logger.warning(f"RTC TTS failed: {e}, returning empty audio chunk")
+            tts_logger.warning(f"RTC TTS failed: {e}, returning empty audio chunk")
             return sample_rate, np.array([], dtype=np.int16)
 
         if audio_chunks:
@@ -143,7 +139,7 @@ class RTCTTSAdapter:
                 async for chunk in response.aiter_bytes():
                     yield sample_rate, np.frombuffer(chunk, dtype=np.int16)
         except Exception as e:
-            logger.error(f"Stream TTS处理出错: {e}")
+            tts_logger.error(f"Stream TTS处理出错: {e}")
             yield sample_rate, np.array([], dtype=np.int16)
 
     def stream_tts_sync(
@@ -153,7 +149,7 @@ class RTCTTSAdapter:
         sample_rate = self.model_info.sample_rate
         payload = RTCTTSRequest(
             input=text,
-            voice=options.voice,  # 可能不存在
+            voice=options.voice,
             speed=1.0,
             model=self.model_name,
         )

@@ -15,8 +15,8 @@ from tts.models.model_manager import tts_model_manager
 def setup_logging(level):
     logging.basicConfig(
         level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()],
+        format="[%(name)s]: %(asctime)s | %(levelname)s | %(message)s",
+        datefmt="%H:%M:%S",
     )
 
 
