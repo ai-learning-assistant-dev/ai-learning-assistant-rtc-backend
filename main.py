@@ -35,6 +35,7 @@ class RTCMetaData:
     sectionId: str = ""
     personaId: str = ""
     sessionId: str = ""
+    daily: bool = False
 
 
 rtc_metadata = RTCMetaData()
@@ -63,6 +64,7 @@ def llm_response(message: str) -> Generator[str, None, None]:
                 "useAudio": True,
                 "ttsOption": "kokoro",
                 "reasoning": False,
+                "daily":rtc_metadata.daily
             },
             stream=True,
             timeout=10,
@@ -224,6 +226,7 @@ class LLMMetaData(BaseModel):
     sectionId: str
     personaId: Union[str, None] = None
     sessionId: str
+    daily: bool
 
 
 @app.post("/webrtc/metadata")
@@ -234,6 +237,7 @@ def parse_input(metadata: LLMMetaData):
     rtc_metadata.sectionId = metadata.sectionId
     rtc_metadata.sessionId = metadata.sessionId
     rtc_metadata.userId = metadata.userId
+    rtc_metadata.daily = metadata.daily or False
 
     print("获取metadata成功")
     return ""
