@@ -1,5 +1,5 @@
 from io import StringIO
-from typing import Annotated, Optional, Union, cast
+from typing import Optional, Union
 from urllib.parse import quote
 
 import click
@@ -8,13 +8,16 @@ from fastapi import File, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from api import app
-from asr.api.utils import load_audio
+from asr.api.utils import load_audio, convert_result_format
 
 from ..models.model_manager import asr_model_manager
+from env import envs
 
 
-def get_asr_model(model_name: str):
-    """获取ASR模型，加载"""
+def get_asr_model():
+    """获取ASR模型，加载SenseVoice模型"""
+    model_name = envs.default_asr_model
+    
     if asr_model_manager.get_model(model_name) is None:
         print("正在加载ASR模型...")
         asr_model_manager.load_model(model_name)
@@ -32,46 +35,45 @@ async def asr(
     # But this will break the API, old plugins rely on this should change there codes.
     audio_file: UploadFile = File(...),  # noqa: B008
     encode: bool = Query(default=True, description="Encode audio first through ffmpeg"),
-    task: Union[str, None] = Query(
-        default="transcribe", enum=["transcribe", "translate"]
-    ),
-    # TODO: Every model might has its own language codes, so enum might not works well here.
-    language: Union[str, None] = Query(default=None),   #, enum=LANGUAGE_CODES),
-    initial_prompt: Union[str, None] = Query(default=None),
-    vad_filter: Annotated[
-        Optional[bool],
-        Query(
-            description="Enable the voice activity detection (VAD) to filter out parts of the audio without speech",
-            include_in_schema=False,  # SenseVoice不支持VAD配置
-        ),
-    ] = False,
-    word_timestamps: bool = Query(
-        default=False,
-        description="Word level timestamps",
-        include_in_schema=False,  # SenseVoice不支持词级时间戳
-    ),
-    # TODO: We should process the output format in this function, not inside the model.
+    language: Union[str, None] = Query(default=None, description="语言代码，不指定时自动检测"),
     output: Union[str, None] = Query(
         default="txt", enum=["txt", "vtt", "srt", "tsv", "json"]
     ),
 ):
-    # TODO: Same above, we need to know the model_name, but not from environment variables
-    model_name = "SenseVoiceSmall"
-    model = get_asr_model(model_name)
+    """
+    语音转文字接口。
+    
+    参数说明：
+    - language: 语言代码（如：zh, en, ja等），不指定时自动检测
+    - output: 输出格式（txt, json, vtt, srt, tsv）
+    
+    注意：SenseVoice模型不提供时间戳信息，vtt/srt格式中时间戳将为0
+    """
+    model = get_asr_model()
     if model is None:
-        raise ValueError(f"模型{model_name}未加载")
+        raise ValueError("ASR模型未加载")
+    
     result = model.transcribe(
         load_audio(audio_file.file, encode),
         language,
     )
-    # TODO: convert the result into StringIO
-    result = cast(StringIO, result)  # this is wrong, remember to delete this
+    
+    formatted_result = convert_result_format(result, output)
+
+    # 根据输出格式设置正确的媒体类型
+    media_type_map = {
+        "txt": "text/plain",
+        "json": "application/json",
+        "vtt": "text/vtt",
+        "srt": "application/x-subrip",
+        "tsv": "text/tab-separated-values",
+    }
 
     return StreamingResponse(
-        result,
-        media_type="text/plain",
+        formatted_result,
+        media_type=media_type_map.get(output, "text/plain"),
         headers={
-            "Asr-Engine": model_name,
+            "Asr-Engine": envs.default_asr_model,
             "Content-Disposition": f'attachment; filename="{quote(audio_file.filename if audio_file.filename is not None else '')}.{output}"',
         },
     )
@@ -82,16 +84,36 @@ async def detect_language(
     audio_file: UploadFile = File(...),  # noqa: B008
     encode: bool = Query(default=True, description="Encode audio first through FFmpeg"),
 ):
-    # TODO: Same above, we need to know the model_name, but not from environment variables
-    model_name = "SenseVoiceSmall"
-    model = get_asr_model(model_name)
-    # TODO: We don't have language_detection interface yet.
+    """
+    语言检测接口（不进行完整转录，节省计算资源）。
+    
+    使用场景：
+    - 只需要检测语言，不需要转录内容
+    - 前端根据检测到的语言做不同的处理逻辑
+    
+    注意：如果需要转录，建议直接使用 /v1/asr/transcribe 接口，它会自动包含语言信息。
+    """
+    model = get_asr_model()
+    if model is None:
+        raise ValueError("ASR模型未加载")
+    
     detected_lang_code, confidence = model.language_detection(
         load_audio(audio_file.file, encode)
     )
+    
+    # 语言代码映射表
+    LANGUAGE_NAMES = {
+        "zh": "Chinese",
+        "en": "English",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "yue": "Cantonese",
+        "auto": "Auto-detect",
+        "unknown": "Unknown",
+    }
+    
     return {
-        # TODO: We might not using SENSEVOICE here, we should return the correct format inside the model
-        "detected_language": SENSEVOICE_LANGUAGES.get(detected_lang_code, "Unknown"),
+        "detected_language": LANGUAGE_NAMES.get(detected_lang_code, "Unknown"),
         "language_code": detected_lang_code,
         "confidence": confidence,
     }
@@ -116,10 +138,8 @@ async def detect_language(
 # @click.version_option(version=app_version)  # 使用我们定义的版本变量
 def start(host: str, port: Optional[int] = None):
     # 在启动服务前预加载模型
-    print("正在启动VoiceWebserver...")
-    # TODO: Same above, we need to know the model_name, but not from environment variables
-    model_name = "SenseVoiceSmall"
-    get_asr_model(model_name)
+    print("正在启动ASR Webserver...")
+    get_asr_model()
     print(f"服务启动在 http://{host}:{port}")
     if port is not None:
         uvicorn.run(app, host=host, port=port)

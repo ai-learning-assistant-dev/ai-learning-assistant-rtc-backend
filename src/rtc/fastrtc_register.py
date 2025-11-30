@@ -6,8 +6,8 @@ import requests
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.pause_detection.protocol import PauseDetectionModel
-from asr.models.model_interface import ASRModelInterface as STTModelInterface
-from asr.rtc_adapter import FastRTCSTTModel
+from asr.models.model_interface import ASRModelInterface
+from asr.rtc_adapter import FastRTCASRModel
 from env import envs
 
 from tts.models.model_interface import AsyncTTSModelInterface
@@ -31,17 +31,17 @@ class FastRTCRegister:
         self,
         base_url: str,
         tts_model: str | None = None,
-        stt_model: str | None = None,
+        asr_model: str | None = None,
         vad_model: str | None = None,
     ):
         if tts_model is not None:
             self.tts_model = RTCTTSAdapter(base_url, tts_model)
         else:
             self.tts_model = None
-        if stt_model is not None:
-            self.stt_model = FastRTCSTTModel(stt_model)
+        if asr_model is not None:
+            self.asr_model = FastRTCASRModel(asr_model)
         else:
-            self.stt_model = None
+            self.asr_model = None
         self.vad_model = vad_model
         self.stream = Stream(
             ReplyOnPause(
@@ -58,8 +58,8 @@ class FastRTCRegister:
     def load_tts_model(self, tts_model: AsyncTTSModelInterface):
         self.tts_model = RTCTTSAdapter(tts_model)
 
-    def load_stt_model(self, stt_model: STTModelInterface):
-        self.stt_model = FastRTCSTTModel(stt_model)
+    def load_asr_model(self, asr_model: ASRModelInterface):
+        self.asr_model = FastRTCASRModel(asr_model)
 
     def load_vad_model(self, vad_model: PauseDetectionModel):
         self.vad_model = vad_model
@@ -135,10 +135,10 @@ class FastRTCRegister:
                 pass
 
     def realtime_conversation(self, audio):
-        if self.stt_model is None or self.tts_model is None:
-            logging.error("STT model or TTS model is not set in FastRTCRegister")
+        if self.asr_model is None or self.tts_model is None:
+            logging.error("ASR model or TTS model is not set in FastRTCRegister")
             return
-        message = self.stt_model.stt(audio).strip()
+        message = self.asr_model.stt(audio).strip()
         if not message:
             return
 

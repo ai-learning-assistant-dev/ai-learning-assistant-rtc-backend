@@ -77,18 +77,18 @@ def auto_select_rtc_model() -> Tuple[str, str]:
 
     if cuda_available:
         selected_tts = "kokoro"
-        selected_stt = "SenseVoiceSmall"
+        selected_asr = "SenseVoiceSmall"
         logging.info(
-            f"CUDA环境可用，自动选择模型: TTS {selected_tts}; STT {selected_stt}"
+            f"CUDA环境可用，自动选择模型: TTS {selected_tts}; ASR {selected_asr}"
         )
     else:
         selected_tts = "kokoro"
-        selected_stt = "SenseVoiceSmall"
+        selected_asr = "SenseVoiceSmall"
         logging.info(
-            f"CUDA环境不可用，自动选择模型: TTS {selected_tts}; STT {selected_stt}"
+            f"CUDA环境不可用，自动选择模型: TTS {selected_tts}; ASR {selected_asr}"
         )
 
-    return selected_tts, selected_stt
+    return selected_tts, selected_asr
 
 
 @click.group()
@@ -163,10 +163,10 @@ def run_tts(model_names, port, auto_detect):
 
 @cli.command()
 @click.option(
-    "--stt-name",
+    "--asr-name",
     required=False,
     default="SenseVoiceSmall",
-    help="要加载的STT模型名称（仅限一个模型）。如果不指定，将自动检测CUDA环境选择模型。例如：SenseVoiceSmall。",
+    help="要加载的ASR模型名称（仅限一个模型）。如果不指定，将自动检测CUDA环境选择模型。例如：SenseVoiceSmall。",
 )
 @click.option(
     "--vad-name",
@@ -187,14 +187,14 @@ def run_tts(model_names, port, auto_detect):
     default=False,
     help="自动检测CUDA环境并选择合适的模型",
 )
-def run_rtc(stt_name: str, vad_name: str, tts_name: str, port: int, auto_detect: bool):
+def run_rtc(asr_name: str, vad_name: str, tts_name: str, port: int, auto_detect: bool):
     """运行实时语音(RTC)服务命令，使用WebRTC进行音频传输"""
     # 初始化完成fastrtc_register后再导入API处理器
     import rtc.api.api_handler as _  # noqa: F401
     from rtc.fastrtc_register import fastrtc_register as _  # noqa: F401, F811
 
     if auto_detect:
-        tts_name, stt_name = auto_select_rtc_model()
+        tts_name, asr_name = auto_select_rtc_model()
 
     try:
         pass
@@ -205,7 +205,7 @@ def run_rtc(stt_name: str, vad_name: str, tts_name: str, port: int, auto_detect:
         # else:
         #     click.echo(f"使用现有TTS模型")
         # fastrtc_register.load_tts_model(tts_model_manager.get_rtc_model(tts_name))
-        # fastrtc_register.load_stt_model(stt_model_manager.get_model(stt_name))
+        # fastrtc_register.load_asr_model(asr_model_manager.get_model(asr_name))
     except Exception as e:
         click.echo(f"加载模型 {tts_name} 失败: {str(e)}", err=True)
         logging.error(traceback.format_exc())  # 打印完整栈信息
@@ -216,20 +216,40 @@ def run_rtc(stt_name: str, vad_name: str, tts_name: str, port: int, auto_detect:
 
 @cli.command()
 @click.option(
-    "--stt-names",
+    "--asr-names",
     required=False,
-    help="要加载的STT模型名称（仅限一个模型）。如果不指定，将自动检测CUDA环境选择模型",
+    help="要加载的ASR模型名称（仅限一个模型）。如果不指定，将使用默认模型SenseVoiceSmall",
 )
-@click.option("--port", default=envs.rtc_port, type=int, help="服务端口")
+@click.option("--port", default=envs.asr_port, type=int, help="服务端口")
 @click.option(
     "--auto-detect",
     is_flag=True,
     default=False,
     help="自动检测CUDA环境并选择合适的模型",
 )
-def run_asr(stt_names: str, port: int, auto_detect: bool):
-    """运行STT服务命令，支持加载多个模型或自动选择模型"""
-    pass
+def run_asr(asr_names: str, port: int, auto_detect: bool):
+    """运行ASR服务命令，支持语音转文字功能"""
+    
+    import asr.api.api_handler as _  # noqa: F401
+    from asr.models.model_manager import asr_model_manager
+
+    # 目前只支持SenseVoiceSmall模型
+    if asr_names:
+        model_name = asr_names.strip()
+    else:
+        model_name = envs.default_asr_model
+    
+    click.echo(f"使用模型: {model_name}")
+
+    try:
+        asr_model_manager.load_model(model_name)
+        click.echo(f"成功加载模型: {model_name}")
+    except Exception as e:
+        click.echo(f"加载模型 {model_name} 失败: {str(e)}", err=True)
+        logging.error(traceback.format_exc())
+        return
+
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":

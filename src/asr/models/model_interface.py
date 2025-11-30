@@ -38,6 +38,16 @@ class ASRModelInterface(ABC):
         """
         pass
 
+    @abstractmethod
+    def language_detection(self, audio: np.ndarray) -> tuple[str, float]:
+        """
+        检测音频的语言
+        
+        Returns:
+            tuple[str, float]: (语言代码, 置信度)
+        """
+        pass
+
     @staticmethod
     @abstractmethod
     def create(vad_model: str | None = None) -> "ASRModelInterface":

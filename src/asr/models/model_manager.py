@@ -16,19 +16,20 @@ class ModelManager:
     def load_model(self, model_name: str):
         """动态加载并初始化模型"""
         try:
-            module = importlib.import_module(f"asr.models.{model_name.lower()}.handler")
+            module = importlib.import_module(f"asr.models.{model_name}.handler")
             model_class = getattr(module, "ASRModel")
             if not issubclass(model_class, ASRModelInterface):
                 raise TypeError(f"{model_name}ASRModel必须实现ASRModelInterface")
             model = model_class.create()  # 调用静态方法创建实例
-            self._models[model.get_model_info().model_name] = model
+            # 使用传入的model_name作为键，保持加载和获取时的一致性
+            self._models[model_name] = model
         except (ImportError, AttributeError) as e:
             raise ValueError(f"加载模型{model_name}失败: {e}")
     
     def download_model(self, model_name: str) -> str:
         """下载模型"""
         try:
-            module = importlib.import_module(f"asr.models.{model_name.lower()}.handler")
+            module = importlib.import_module(f"asr.models.{model_name}.handler")
             model_class = getattr(module, "ASRModel")
             if not issubclass(model_class, ASRModelInterface):
                 raise TypeError(f"{model_name}ASRModel必须实现ASRModelInterface")

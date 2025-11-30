@@ -1,7 +1,7 @@
 [project]
 name = "ala-rtc-backend"
 version = "0.1.0"
-description = "RTC backend for ai learning assistant, including STT and TTS service."
+description = "RTC backend for ai learning assistant, including ASR and TTS service."
 authors = [
     { name = "Ya Qia", email = "yyaqia@gmail.com" },
     { name = "Nanyun" },

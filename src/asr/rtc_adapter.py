@@ -7,14 +7,14 @@ from attr import dataclass
 from fastrtc import PauseDetectionModel
 from fastrtc.speech_to_text.stt_ import STTModel
 from fastrtc.utils import AudioChunk, audio_to_float32
-from funasr_utils.resample import resample_audio
 from numpy.typing import NDArray
 
+from asr.funasr_utils.resample import resample_audio
 from asr.models.model_interface import ASRModelInterface
 
 logging.basicConfig(
     level=logging.INFO,
-    format="[STT]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="[ASR]: %(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ from funasr import AutoModel
 
 
 # TODO: This should be converted into API call, rather than duplicate the model.
-class FastRTCSTTModel(STTModel):
+class FastRTCASRModel(STTModel):
 
     def __init__(self, model: ASRModelInterface):
         self.model = model

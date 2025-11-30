@@ -9,8 +9,8 @@ class EnvVar(BaseSettings):
     app_host: str = "0.0.0.0"
     tts_sample_rate: int = 16000
     default_tts_model: str = "kokoro"
-    stt_sample_rate: int = 16000
-    default_stt_model: str = "SenseVoiceSmall"
+    asr_sample_rate: int = 16000
+    default_asr_model: str = "SenseVoiceSmall"
     use_gpu: bool = True
 
     class Config:

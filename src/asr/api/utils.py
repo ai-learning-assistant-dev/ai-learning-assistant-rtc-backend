@@ -1,11 +1,15 @@
 from typing import BinaryIO
 import numpy as np
+import json
+from io import StringIO
 
 from env import envs
 import ffmpeg
 import imageio_ffmpeg
+from asr.models.model_interface import TranscribeData
 
-def load_audio(file: BinaryIO, encode=True, sr: int = envs.stt_sample_rate):
+
+def load_audio(file: BinaryIO, encode=True, sr: int = envs.asr_sample_rate):
     """
     打开音频文件对象并读取为单声道波形，必要时重新采样。
     
@@ -23,9 +27,7 @@ def load_audio(file: BinaryIO, encode=True, sr: int = envs.stt_sample_rate):
     """
     if encode:
         try:
-            # TODO: I can not get this ffmpeg work.
-            # This launches a subprocess to decode audio while down-mixing and resampling as necessary.
-            # 使用配置的FFmpeg路径（本地优先）
+            # 使用 imageio_ffmpeg 提供的 ffmpeg（自动下载，无需本地安装）
             ffmpeg_cmd = imageio_ffmpeg.get_ffmpeg_exe()
             out, _ = (
                 ffmpeg.input("pipe:", threads=0)
@@ -38,3 +40,129 @@ def load_audio(file: BinaryIO, encode=True, sr: int = envs.stt_sample_rate):
         out = file.read()
 
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+
+
+def format_timestamp(milliseconds: int, format_type: str = "srt") -> str:
+    """
+    将毫秒时间戳格式化为指定格式
+    
+    Parameters
+    ----------
+    milliseconds: int
+        毫秒时间戳
+    format_type: str
+        格式类型，支持 "srt" (00:00:00,000) 或 "vtt" (00:00:00.000)
+    
+    Returns
+    -------
+    格式化后的时间戳字符串
+    """
+    hours = milliseconds // 3600000
+    minutes = (milliseconds % 3600000) // 60000
+    seconds = (milliseconds % 60000) // 1000
+    ms = milliseconds % 1000
+    
+    separator = "," if format_type == "srt" else "."
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}{separator}{ms:03d}"
+
+
+def convert_to_txt(result: TranscribeData) -> StringIO:
+    """将识别结果转换为纯文本格式"""
+    output = StringIO()
+    output.write(result.text)
+    output.seek(0)
+    return output
+
+
+def convert_to_json(result: TranscribeData) -> StringIO:
+    """将识别结果转换为JSON格式"""
+    output = StringIO()
+    json.dump(result.model_dump(), output, ensure_ascii=False, indent=2)
+    output.seek(0)
+    return output
+
+
+def convert_to_vtt(result: TranscribeData) -> StringIO:
+    """
+    将识别结果转换为WebVTT格式
+    注意：SenseVoice不提供时间戳，时间戳将显示为 00:00:00.000
+    """
+    output = StringIO()
+    output.write("WEBVTT\n\n")
+    
+    for i, segment in enumerate(result.segments, 1):
+        start = format_timestamp(segment.get("start", 0), "vtt")
+        end = format_timestamp(segment.get("end", 0), "vtt")
+        text = segment.get("text", "")
+        
+        output.write(f"{i}\n")
+        output.write(f"{start} --> {end}\n")
+        output.write(f"{text}\n\n")
+    
+    output.seek(0)
+    return output
+
+
+def convert_to_srt(result: TranscribeData) -> StringIO:
+    """
+    将识别结果转换为SRT字幕格式
+    注意：SenseVoice不提供时间戳，时间戳将显示为 00:00:00,000
+    """
+    output = StringIO()
+    
+    for i, segment in enumerate(result.segments, 1):
+        start = format_timestamp(segment.get("start", 0), "srt")
+        end = format_timestamp(segment.get("end", 0), "srt")
+        text = segment.get("text", "")
+        
+        output.write(f"{i}\n")
+        output.write(f"{start} --> {end}\n")
+        output.write(f"{text}\n\n")
+    
+    output.seek(0)
+    return output
+
+
+def convert_to_tsv(result: TranscribeData) -> StringIO:
+    """将识别结果转换为TSV（Tab Separated Values）格式"""
+    output = StringIO()
+    output.write("start\tend\ttext\n")
+    
+    for segment in result.segments:
+        start = segment.get("start", 0)
+        end = segment.get("end", 0)
+        text = segment.get("text", "")
+        output.write(f"{start}\t{end}\t{text}\n")
+    
+    output.seek(0)
+    return output
+
+
+def convert_result_format(result: TranscribeData, output_format: str) -> StringIO:
+    """
+    将识别结果转换为指定的输出格式
+    
+    Parameters
+    ----------
+    result: TranscribeData
+        识别结果
+    output_format: str
+        输出格式：txt, json, vtt, srt, tsv
+    
+    Returns
+    -------
+    StringIO对象，包含格式化后的结果
+    """
+    format_converters = {
+        "txt": convert_to_txt,
+        "json": convert_to_json,
+        "vtt": convert_to_vtt,
+        "srt": convert_to_srt,
+        "tsv": convert_to_tsv,
+    }
+    
+    converter = format_converters.get(output_format)
+    if converter is None:
+        raise ValueError(f"不支持的输出格式: {output_format}")
+    
+    return converter(result)
