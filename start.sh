@@ -1,0 +1,1 @@
+uv run --no-sync main.py

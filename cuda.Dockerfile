@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:debian-slim
 RUN apt-get update
-RUN apt-get install -y ffmpeg
+RUN apt-get install -y ffmpeg curl
 WORKDIR /ai-learning-assistant-rtc-backend
 COPY pyproject.toml pyproject.toml
 # CPU 版本镜像
@@ -18,6 +18,8 @@ ENV APP_PORT=8989
 ENV APP_HOST=0.0.0.0
 RUN uv run --no-sync model_cache.py
 ENV IN_CONTAINER='true'
+COPY start.sh start.sh
+COPY stop.sh stop.sh
 
 EXPOSE 8989
 
