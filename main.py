@@ -4,14 +4,18 @@ import re
 import time
 from typing import Generator, Union
 
+import click
 import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
+from fastrtc import AdditionalOutputs, AlgoOptions, PauseDetectionModel, ReplyOnPause, Stream
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from requests.models import ReadTimeoutError
+from huggingface_hub import hf_hub_download
+from fastrtc.pause_detection.silero import SileroVADModel
+from functools import lru_cache
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,6 +32,7 @@ class EnvVar(BaseSettings):
     llm_stream_url: str = "http://localhost:3000/api/ai-chat/chat/stream"
     app_port: int = 8989
     app_host: str = "0.0.0.0"
+    in_container: str = 'false'
 
     class Config:
         env_file = ".env"
@@ -201,12 +206,43 @@ def realtime_conversation(audio):
     finally:
         response.close()
 
+@lru_cache
+def get_silero_model() -> PauseDetectionModel:
+    # 解决启动要联网问题
+    @staticmethod
+    def custom_download_model() -> str:
+        if(envs.in_container != 'false'):
+            return hf_hub_download(
+                repo_id="freddyaboulton/silero-vad", filename="silero_vad.onnx", local_files_only=True
+            )
+        else:
+            return hf_hub_download(
+                repo_id="freddyaboulton/silero-vad", filename="silero_vad.onnx"
+            )
+    SileroVADModel.download_model = custom_download_model
+    """Returns the VAD model instance and warms it up with dummy data."""
+    # Warm up the model with dummy data
+
+    try:
+        import importlib.util
+
+        mod = importlib.util.find_spec("onnxruntime")
+        if mod is None:
+            raise RuntimeError("Install fastrtc[vad] to use ReplyOnPause")
+    except (ValueError, ModuleNotFoundError):
+        raise RuntimeError("Install fastrtc[vad] to use ReplyOnPause")
+    model = SileroVADModel()
+    print(click.style("INFO", fg="green") + ":\t  Warming up VAD model.")
+    model.warmup()
+    print(click.style("INFO", fg="green") + ":\t  VAD model warmed up.")
+    return model
+
 
 stream = Stream(
     ReplyOnPause(
         realtime_conversation,
         algo_options=AlgoOptions(started_talking_threshold=0.5),
-        # model=FSMNVad(),
+        model=get_silero_model(),
         input_sample_rate=16000,
     ),
     modality="audio",
