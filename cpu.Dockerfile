@@ -16,6 +16,7 @@ COPY model_cache.py model_cache.py
 ENV LLM_STREAM_URL=http://host.ala.internal:7100/api/ai-chat/chat/stream
 ENV APP_PORT=8989
 ENV APP_HOST=0.0.0.0
+RUN uv run --no-sync model_cache.py
 ENV IN_CONTAINER='true'
 
 EXPOSE 8989
