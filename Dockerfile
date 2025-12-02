@@ -19,6 +19,8 @@ RUN uv run model_cache.py
 
 COPY --from=download-code /ai-learning-assistant-rtc-backend /ai-learning-assistant-rtc-backend
 
+COPY main.py main.py
+
 ENV LLM_STREAM_URL=http://host.ala.internal:7100/api/ai-chat/chat/stream
 ENV APP_PORT=8989
 ENV APP_HOST=0.0.0.0
