@@ -1,19 +1,27 @@
 import json
+import logging
 import re
+import time
 from typing import Generator, Union
 
-import logging
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+from requests.models import ReadTimeoutError
 
-from funasr_stt.stt_adapter import LocalFunASR
-from funasr_vad.vad_adapter import FSMNVad
-from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(name)s]: %(levelname)s | %(asctime)s | %(message)s",
+    datefmt="%H:%M:%S",
+)
+
+# from funasr_vad.vad_adapter import FSMNVad  # noqa: E402
+from funasr_stt.stt_adapter import LocalFunASR  # noqa: E402
+from kokoro_tts.tts_adapter import get_kokoro_v11_zh_model  # noqa: E402
 
 
 class EnvVar(BaseSettings):
@@ -33,6 +41,7 @@ class RTCMetaData:
     sectionId: str = ""
     personaId: str = ""
     sessionId: str = ""
+    daily: bool = False
 
 
 rtc_metadata = RTCMetaData()
@@ -42,12 +51,8 @@ class LLMStreamError(Exception):
     """Raised when LLM streaming request fails or returns an error status."""
 
 
-logging.basicConfig(level=logging.INFO)
-
-
 def llm_response(message: str) -> Generator[str, None, None]:
     try:
-        print(envs.llm_stream_url)
         session = requests.Session()
         session.trust_env = False
         resp = session.post(
@@ -61,44 +66,39 @@ def llm_response(message: str) -> Generator[str, None, None]:
                 "useAudio": True,
                 "ttsOption": "kokoro",
                 "reasoning": False,
+                "daily": rtc_metadata.daily,
             },
             stream=True,
-            timeout=30,
+            timeout=10,
         )
     except requests.RequestException as e:
         logging.exception("Failed to connect to LLM stream")
-        raise LLMStreamError(f"LLM request failed: {e}")
+        raise LLMStreamError(f"大模型请求失败: {e}")
 
-    if resp.ok is False:
-        # try to include response body in the error message for debugging
-        body = ""
-        try:
-            body = resp.text
-        except Exception:
-            body = "<unable to read response body>"
-        logging.error("LLM server error %s: %s", resp.status_code, body[:200])
-        # raise a domain-specific error so callers can handle it gracefully
-        try:
-            resp.close()
-        except Exception:
-            pass
-        raise LLMStreamError(f"LLM server returned {resp.status_code}: {body}")
+    if not resp.ok:
+        raise LLMStreamError(f"大模型API返回错误: {resp.status_code}")
+
+    last_activity = time.time()
 
     try:
         for chunk in resp.iter_content(chunk_size=None):
             if chunk:
+                last_activity = time.time()
                 try:
-                    decode_chunk = chunk.decode("utf-8")
-                    yield decode_chunk
-                except UnicodeDecodeError as e:
+                    yield chunk.decode("utf-8")
+                except UnicodeDecodeError:
                     logging.exception("Decode error from LLM stream")
                     # yield nothing for this chunk but continue streaming
                     yield ""
+            else:
+                # If no chunk received for >20s → break
+                if time.time() - last_activity > 20:
+                    raise LLMStreamError("大模型响应超时")
+    except TimeoutError or ConnectionError or ReadTimeoutError as e:
+        logging.exception("Connection error from LLM stream")
+        raise LLMStreamError(f"大模型响应失败：{e}")
     finally:
-        try:
-            resp.close()
-        except Exception:
-            pass
+        resp.close()
 
 
 # ASR - FunASR or whisper.cpp
@@ -146,7 +146,7 @@ def realtime_conversation(audio):
         "\n",
         "，",
         ",",
-        " ",
+        # " ",
         "…",
         "—",
         ")",
@@ -179,27 +179,27 @@ def realtime_conversation(audio):
                 # 如果没有找到合适的断句点，或者缓冲区太短，退出循环
                 if not found_break or len(buffer.strip()) < 2:
                     break
+        # 处理剩余内容
+        if buffer.strip():
+            yield AdditionalOutputs(timestamp, buffer)
+            for chunk in tts_model.stream_tts_sync(buffer):
+                yield chunk
+
     except LLMStreamError as e:
         logging.exception("LLM stream error while generating response")
         # 有礼貌地告诉用户出错，并尝试通过 TTS 返回一条短消息
-        error_text = "抱歉，智能助理暂时无法响应，请稍后再试。"
+        error_text = f"抱歉，智能助理暂时无法响应，请稍后再试。错误信息：{e}。"
         yield AdditionalOutputs(timestamp, error_text)
         for chunk in tts_model.stream_tts_sync(error_text):
             yield chunk
-        return
-    except Exception:
+    except Exception as e:
         logging.exception("Unexpected error during LLM streaming")
-        error_text = "发生未知错误，请稍后重试。"
+        error_text = f"发生未知错误，请稍后重试。错误信息：{e}。"
         yield AdditionalOutputs(timestamp, error_text)
         for chunk in tts_model.stream_tts_sync(error_text):
             yield chunk
-        return
-
-    # 处理剩余内容
-    if buffer.strip():
-        yield AdditionalOutputs(timestamp, buffer)
-        for chunk in tts_model.stream_tts_sync(buffer):
-            yield chunk
+    finally:
+        response.close()
 
 
 stream = Stream(
@@ -228,6 +228,7 @@ class LLMMetaData(BaseModel):
     sectionId: str
     personaId: Union[str, None] = None
     sessionId: str
+    daily: bool
 
 
 @app.post("/webrtc/metadata")
@@ -238,6 +239,7 @@ def parse_input(metadata: LLMMetaData):
     rtc_metadata.sectionId = metadata.sectionId
     rtc_metadata.sessionId = metadata.sessionId
     rtc_metadata.userId = metadata.userId
+    rtc_metadata.daily = metadata.daily or False
 
     print("获取metadata成功")
     return ""
@@ -268,4 +270,5 @@ stream.mount(app)
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host=envs.app_host, port=envs.app_port)
