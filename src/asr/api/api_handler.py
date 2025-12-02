@@ -1,64 +1,71 @@
-from io import StringIO
-from typing import Optional, Union
+import typing
+from typing import Optional
 from urllib.parse import quote
 
 import click
 import uvicorn
-from fastapi import File, Query, UploadFile
+from fastapi import UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from api import app
-from asr.api.utils import load_audio, convert_result_format
-
-from ..models.model_manager import asr_model_manager
+from asr.api.utils import convert_result_format, load_audio
+from asr.models.model_interface import ASRModelInterface
 from env import envs
 
+from ..models.model_manager import asr_model_manager
 
-def get_asr_model():
+
+def get_asr_model(model_name: str | None = None):
     """获取ASR模型，加载SenseVoice模型"""
-    model_name = envs.default_asr_model
-    
+    if model_name is None:
+        model_name = envs.default_asr_model
+
     if asr_model_manager.get_model(model_name) is None:
         print("正在加载ASR模型...")
         asr_model_manager.load_model(model_name)
         print(f"✓ ASR模型加载完成: {model_name}")
-    asr_model = asr_model_manager.get_model(model_name)
+    asr_model = typing.cast(ASRModelInterface, asr_model_manager.get_model(model_name))
     return asr_model
+
+
+class ASRRequest(BaseModel):
+    """ASR转录请求参数"""
+
+    audio_file: UploadFile = Field(..., description="音频文件上传")
+    encode: bool = Field(default=True, description="是否通过ffmpeg编码音频")
+    language: str | None = Field(default=None, description="语言代码，不指定时自动检测")
+    output: str = Field(
+        default="txt", description="输出格式", pattern="^(txt|vtt|srt|tsv|json)$"
+    )
+    model_name: str | None = Field(
+        default=None, description="ASR模型名称，不指定时使用默认模型"
+    )
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 # original: /asr
 @app.post("/v1/asr/transcribe", tags=["Endpoints"])
-async def asr(
-    # TODO: Think about how to add model_name here.
-    # Because there might be multiple models available.
-    # We might mimic the TTS logic: define a request type here.
-    # But this will break the API, old plugins rely on this should change there codes.
-    audio_file: UploadFile = File(...),  # noqa: B008
-    encode: bool = Query(default=True, description="Encode audio first through ffmpeg"),
-    language: Union[str, None] = Query(default=None, description="语言代码，不指定时自动检测"),
-    output: str = Query(
-        default="txt", enum=["txt", "vtt", "srt", "tsv", "json"]
-    ),
-):
+async def asr(request: ASRRequest):
     """
     语音转文字接口。
-    
+
     参数说明：
     - language: 语言代码（如：zh, en, ja等），不指定时自动检测
     - output: 输出格式（txt, json, vtt, srt, tsv）
-    
+
     注意：SenseVoice模型不提供时间戳信息，vtt/srt格式中时间戳将为0
     """
-    model = get_asr_model()
-    if model is None:
-        raise ValueError("ASR模型未加载")
-    
+    model = get_asr_model(request.model_name)
+
     result = model.transcribe(
-        load_audio(audio_file.file, encode),
-        language,
+        load_audio(request.audio_file.file, request.encode),
+        request.language,
     )
-    
-    formatted_result = convert_result_format(result, output)
+
+    formatted_result = convert_result_format(result, request.output)
 
     # 根据输出格式设置正确的媒体类型
     media_type_map = {
@@ -71,36 +78,46 @@ async def asr(
 
     return StreamingResponse(
         formatted_result,
-        media_type=media_type_map.get(output, "text/plain"),
+        media_type=media_type_map.get(request.output, "text/plain"),
         headers={
             "Asr-Engine": envs.default_asr_model,
-            "Content-Disposition": f'attachment; filename="{quote(audio_file.filename if audio_file.filename is not None else '')}.{output}"',
+            "Content-Disposition": f'attachment; filename="{quote(request.audio_file.filename if request.audio_file.filename is not None else '')}.{request.output}"',
         },
     )
 
 
-@app.post("/detect-language", tags=["Endpoints"])
-async def detect_language(
-    audio_file: UploadFile = File(...),  # noqa: B008
-    encode: bool = Query(default=True, description="Encode audio first through FFmpeg"),
-):
+class DetectLanguageRequest(BaseModel):
+    """ASR语言识别请求参数"""
+
+    audio_file: UploadFile = Field(..., description="音频文件上传")
+    encode: bool = Field(default=True, description="是否通过ffmpeg编码音频")
+    model_name: str | None = Field(
+        default=None, description="ASR模型名称，不指定时使用默认模型"
+    )
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+@app.post("/v1/asr/detect-language", tags=["Endpoints"])
+async def detect_language(request: DetectLanguageRequest):
     """
     语言检测接口（不进行完整转录，节省计算资源）。
-    
+
     使用场景：
     - 只需要检测语言，不需要转录内容
     - 前端根据检测到的语言做不同的处理逻辑
-    
+
     注意：如果需要转录，建议直接使用 /v1/asr/transcribe 接口，它会自动包含语言信息。
     """
-    model = get_asr_model()
+    model = get_asr_model(request.model_name)
     if model is None:
         raise ValueError("ASR模型未加载")
-    
+
     detected_lang_code, confidence = model.language_detection(
-        load_audio(audio_file.file, encode)
+        load_audio(request.audio_file.file, request.encode)
     )
-    
+
     # 语言代码映射表
     LANGUAGE_NAMES = {
         "zh": "Chinese",
@@ -111,7 +128,7 @@ async def detect_language(
         "auto": "Auto-detect",
         "unknown": "Unknown",
     }
-    
+
     return {
         "detected_language": LANGUAGE_NAMES.get(detected_lang_code, "Unknown"),
         "language_code": detected_lang_code,

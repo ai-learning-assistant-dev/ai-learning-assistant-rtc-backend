@@ -3,7 +3,7 @@ import io
 import logging
 import traceback
 import typing
-from typing import Callable, List, Union
+from typing import List
 
 import numpy as np
 import soundfile as sf
@@ -14,11 +14,15 @@ from pydantic import BaseModel, Field
 from api import app
 from env import envs
 
-from ..models.model_interface import AsyncTTSModelInterface, ModelDetail, TTSModelInterface
+from ..models.model_interface import (
+    AsyncTTSModelInterface,
+    ModelDetail,
+    TTSModelInterface,
+)
 from ..models.model_manager import tts_model_manager
 from .utils import is_text_too_complex, split_text_safely
 
-speed_doc = """
+SPEED_DOC = """
 语速控制参数：
 
 - **常规用法**：指定固定的语速倍数
@@ -34,12 +38,31 @@ speed_doc = """
   - 长文本使用更慢语速以优化用户体验
 """
 
+
+def get_tts_model(model_name: str | None = None):
+    """获取TTS模型"""
+    if model_name is None:
+        model_name = envs.default_tts_model
+
+    if tts_model_manager.get_model(model_name) is None:
+        print("正在加载TTS模型...")
+        tts_model_manager.load_model(model_name)
+        print(f"✓ TTS模型加载完成: {model_name}")
+
+    tts_model = typing.cast(
+        TTSModelInterface | AsyncTTSModelInterface,
+        tts_model_manager.get_model(model_name),
+    )
+    return tts_model
+
+
 class TTSRequest(BaseModel):
     input: str
     voice: str
     response_format: str
-    speed: float = Field(default=1.0, description=speed_doc)
+    speed: float = Field(default=1.0, description=SPEED_DOC)
     model: str
+
 
 # text longer, read slower
 def _speed_callable(len_ps: int) -> float:
@@ -50,15 +73,14 @@ def _speed_callable(len_ps: int) -> float:
         speed = 1 - (len_ps - 83) / 500
     return speed * 1.1
 
+
 # original: /v1/audio/speech
 @app.post("/v1/tts/synthesize")
 async def tts_handler(request: TTSRequest):
     logging.info(f"收到TTS请求: {request}")
     try:
         model_name = envs.default_tts_model if not request.model else request.model
-        model = tts_model_manager.get_model(model_name)
-        if model is None:
-            raise ValueError(f"模型{model_name}未加载")
+        model = get_tts_model(model_name)
         if request.speed == 0:
             speed = _speed_callable
         else:
@@ -73,9 +95,7 @@ async def tts_handler(request: TTSRequest):
                 segment_audios.append(audio_data)
             combined_audio = np.concatenate(segment_audios)
         else:
-            combined_audio = model.synthesize(
-                request.input, request.voice, speed
-            )
+            combined_audio = model.synthesize(request.input, request.voice, speed)
 
         # 创建内存中的音频文件
         audio_buffer = io.BytesIO()
@@ -104,7 +124,7 @@ class RTCTTSRequest(BaseModel):
     speed: float = Field(
         default=1.0,
         ge=0.0,
-        description=speed_doc,
+        description=SPEED_DOC,
     )
     model: str
 
@@ -114,9 +134,7 @@ def stream_tts_handler(request: RTCTTSRequest):
     logging.info(f"收到RTC TTS请求: {request}")
     try:
         model_name = envs.default_tts_model if not request.model else request.model
-        model = tts_model_manager.get_model(model_name)
-        if model is None:
-            raise ValueError(f"模型{model_name}未加载")
+        model = get_tts_model(model_name)
         model_info = model.get_model_info()
         if not model_info.is_rtc_model:
             raise ValueError("Can not use this TTS model for RTC")
@@ -174,10 +192,10 @@ async def get_available_models_info():
     try:
         available_models = tts_model_manager.get_available_models()
         for model_name in available_models:
-            model_instance = tts_model_manager.get_model(model_name)
-            if model_instance is None:
-                # This is impossible, but we still have this error handling
-                raise ValueError(f"模型{model_name}未加载")
+            model_instance = typing.cast(
+                AsyncTTSModelInterface | TTSModelInterface,
+                tts_model_manager.get_model(model_name),
+            )
             model_info = model_instance.get_model_info()  # 获取模型基本信息
             all_model_details.append(model_info)
         return AvailableModelsResponse(models=all_model_details)
@@ -196,10 +214,12 @@ async def get_available_stream_models_info(model_name: str):
     try:
         available_models = tts_model_manager.get_available_rtc_models()
         for model_name in available_models:
-            model_instance = tts_model_manager.get_model(model_name)
-            if model_instance is None:
-                # This is impossible, but we still have this error handling
-                raise ValueError(f"模型{model_name}未加载")
+            # This should never fail. If it does,
+            # it means we do the wrong logic filtering models for RTC.
+            model_instance = typing.cast(
+                AsyncTTSModelInterface,
+                tts_model_manager.get_model(model_name),
+            )
             model_info = model_instance.get_model_info()  # 获取模型基本信息
             all_model_details.append(model_info)
         return AvailableModelsResponse(models=all_model_details)

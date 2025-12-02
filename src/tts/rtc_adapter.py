@@ -37,7 +37,9 @@ class RTCTTSAdapter:
         self.warmup_model()
 
     def get_model_info(self) -> ModelDetail:
-        response = requests.get(self.base_url + "/v1/models/info")
+        response = requests.get(
+            self.base_url + "/v1/tts/models/info/stream"
+        )  # only get streaming tts models
 
         if response.status_code != 200:
             print(f"获取模型信息失败: {response.status_code}")
