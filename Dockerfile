@@ -1,29 +1,22 @@
-FROM ghcr.io/astral-sh/uv:debian-slim AS download-code
-
-RUN apt-get update
-RUN apt-get install -y git
-RUN cd / && git clone https://github.com/ai-learning-assistant-dev/ai-learning-assistant-rtc-backend
-WORKDIR /ai-learning-assistant-rtc-backend
-RUN git checkout stable && rm -rf .git
-
 FROM ghcr.io/astral-sh/uv:debian-slim
 RUN apt-get update
 RUN apt-get install -y ffmpeg
-COPY SenseVoiceSmall /root/.cache/modelscope/hub/models/iic/SenseVoiceSmall
 WORKDIR /ai-learning-assistant-rtc-backend
-COPY model_cache.py model_cache.py
 COPY pyproject.toml pyproject.toml
 # CPU 版本镜像
 RUN uv sync --extra cpu
-RUN uv run model_cache.py
-
-COPY --from=download-code /ai-learning-assistant-rtc-backend /ai-learning-assistant-rtc-backend
-
+COPY models /root/.cache/modelscope/hub/models
 COPY main.py main.py
-
+COPY funasr_stt funasr_stt
+COPY funasr_utils funasr_utils
+COPY funasr_vad funasr_vad
+COPY kokoro_tts kokoro_tts
+COPY model_cache.py model_cache.py
 ENV LLM_STREAM_URL=http://host.ala.internal:7100/api/ai-chat/chat/stream
 ENV APP_PORT=8989
 ENV APP_HOST=0.0.0.0
+
+RUN uv run model_cache.py
 
 EXPOSE 8989
 
