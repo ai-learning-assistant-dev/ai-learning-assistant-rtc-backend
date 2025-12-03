@@ -2,7 +2,9 @@ import logging
 import math
 from typing import Tuple
 
+import httpx
 import numpy as np
+import requests
 import torch
 from attr import dataclass
 from fastrtc import PauseDetectionModel
@@ -11,17 +13,48 @@ from fastrtc.utils import AudioChunk, audio_to_float32
 from funasr import AutoModel
 from numpy.typing import NDArray
 
-from asr.funasr_utils.resample import resample_audio
-from asr.models.model_interface import ASRModelInterface
+from asr.api.api_handler import AvailableModelsResponse, RTCASRRequest
+from asr.api.utils import resample_audio
+from asr.models.model_interface import ModelDetail
 
 asr_logger = logging.getLogger("ASR")
 
 
-# TODO: This should be converted into API call, rather than duplicate the model.
-class FastRTCASRModel(STTModel):
+class RTCASRAdapter(STTModel):
 
-    def __init__(self, model: ASRModelInterface):
-        self.model = model
+    def __init__(self, base_url: str, model_name: str):
+        self.model_name = model_name
+        self.base_url = base_url
+        self.client = httpx.Client(base_url=base_url)
+        self.model_info = self.get_model_info()
+
+    def get_model_info(self) -> ModelDetail:
+        response = requests.get(self.base_url + "/v1/asr/models/info")
+
+        if response.status_code != 200:
+            print(f"获取模型信息失败: {response.status_code}")
+            raise requests.HTTPError(
+                "Can not get the model info, check if the TTS service is started."
+            )
+
+        data = AvailableModelsResponse(**response.json())
+        models = data.models
+
+        for model in models:
+            if model.model_name != self.model_name:
+                continue
+            return model
+
+        self.expected_lang = "auto"
+        for lang in self.model_info.languages:
+            # Chinese by default
+            if lang == "zh" or lang == "Chinese":
+                self.expected_lang = lang
+                break
+
+        raise AssertionError(
+            "Can not get the model info, the model might not be initialized."
+        )
 
     def stt(self, audio: Tuple[int, NDArray[np.int16 | np.float32]]) -> str:
         sample_rate, audio_array = audio
@@ -29,14 +62,8 @@ class FastRTCASRModel(STTModel):
             f"Received audio data: sample_rate={sample_rate}, data_type={type(audio_array)}, shape={getattr(audio_array, 'shape', 'N/A')}"
         )
 
-        if self.model is None:
-            raise RuntimeError("ASR model not loaded, please initialize model first")
-
         try:
             audio_array = audio_to_float32(audio_array)
-            sample_rate, audio_array = resample_audio(
-                audio_array, sample_rate, asr_logger
-            )
 
             if audio_array.ndim > 1:
                 audio_array = (
@@ -45,9 +72,21 @@ class FastRTCASRModel(STTModel):
                     else audio_array[:, 0]
                 )
 
+            payload = RTCASRRequest(
+                audio=audio_array,
+                sample_rate=sample_rate,
+                language=self.expected_lang,
+                model_name="SenseVoiceSmall",
+            )
             asr_logger.info(f"Processed audio length: {len(audio_array)}")
+            response = self.client.post("/v1/asr/transcribe/rtc", json=payload)
 
-            return self.model.raw_transcribe(audio_array, "zh")
+            if response.status_code != 200:
+                print(f"ASR音频转换文本失败: {response.status_code}")
+                raise requests.HTTPError(
+                    "ASR failed, check if the ASR service is started."
+                )
+            return response.text
 
         except Exception as e:
             asr_logger.error(f"Speech transcription error: {e}")
@@ -84,7 +123,7 @@ class FSMNVad(PauseDetectionModel):
         sample_rate, audio_array = audio
         try:
             audio_array = audio_to_float32(audio_array)
-            sample_rate, audio_array = resample_audio(audio_array, sample_rate)
+            sample_rate, audio_array = resample_audio(audio_array, sample_rate, 16000)
 
             if audio_array.ndim > 1:
                 audio_array = (

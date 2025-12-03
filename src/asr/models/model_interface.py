@@ -10,6 +10,7 @@ class ModelDetail(BaseModel):
     description: str
     device: str
     sample_rate: int
+    languages: List[str]
 
 class Timestamp(BaseModel):
     text: str

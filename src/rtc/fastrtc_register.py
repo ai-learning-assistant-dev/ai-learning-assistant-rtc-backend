@@ -5,12 +5,9 @@ from typing import Generator
 import requests
 from fastrtc import AdditionalOutputs, AlgoOptions, ReplyOnPause, Stream
 from fastrtc.pause_detection.protocol import PauseDetectionModel
-from fastrtc.speech_to_text.stt_ import STTModel
 
-from asr.models.model_interface import ASRModelInterface
-from asr.rtc_adapter import FastRTCASRModel
+from asr.rtc_adapter import RTCASRAdapter
 from env import envs
-from tts.models.model_interface import AsyncTTSModelInterface
 from tts.rtc_adapter import RTCTTSAdapter
 
 
@@ -32,14 +29,14 @@ class FastRTCRegister:
         base_url: str,
         tts_model: str | None = None,
         asr_model: str | None = None,
-        vad_model: str | None = None,
+        vad_model: PauseDetectionModel | None = None,
     ):
         if tts_model is not None:
             self.tts_model = RTCTTSAdapter(base_url, tts_model)
         else:
             self.tts_model = None
         if asr_model is not None:
-            self.asr_model = FastRTCASRModel(asr_model)
+            self.asr_model = RTCASRAdapter(base_url, asr_model)
         else:
             self.asr_model = None
         self.vad_model = vad_model
@@ -54,26 +51,6 @@ class FastRTCRegister:
             mode="send-receive",
         )
         self.metadata = RTCLLMMetaData()
-
-    def load_tts_model(self, tts_model: AsyncTTSModelInterface):
-        self.tts_model = RTCTTSAdapter(tts_model)
-
-    def load_asr_model(self, asr_model: ASRModelInterface):
-        self.asr_model = FastRTCASRModel(asr_model)
-
-    def load_vad_model(self, vad_model: PauseDetectionModel):
-        self.vad_model = vad_model
-        # restart stream with new VAD model
-        self.stream = Stream(
-            ReplyOnPause(
-                self.realtime_conversation,
-                algo_options=AlgoOptions(started_talking_threshold=0.5),
-                model=vad_model,
-                input_sample_rate=16000,
-            ),
-            modality="audio",
-            mode="send-receive",
-        )
 
     def llm_response(self, message: str) -> Generator[str, None, None]:
         if (
@@ -233,4 +210,5 @@ class FastRTCRegister:
                 yield chunk
 
 
-fastrtc_register = FastRTCRegister()
+# global fastrtc register, initialized with None
+fastrtc_register: FastRTCRegister | None = None

@@ -38,8 +38,8 @@ class RTCTTSAdapter:
 
     def get_model_info(self) -> ModelDetail:
         response = requests.get(
-            self.base_url + "/v1/tts/models/info/stream"
-        )  # only get streaming tts models
+            self.base_url + "/v1/tts/models/info/rtc"
+        )  # only get rtc tts models
 
         if response.status_code != 200:
             print(f"获取模型信息失败: {response.status_code}")
@@ -67,7 +67,7 @@ class RTCTTSAdapter:
                 model=self.model_name,
             )
             with self.sync_client.stream(
-                "POST", "/v1/tts/stream", json=payload
+                "POST", "/v1/tts/synthesize/rtc", json=payload
             ) as response:
                 response.raise_for_status()
 
@@ -101,7 +101,7 @@ class RTCTTSAdapter:
         audio_chunks = []
         try:
             with self.sync_client.stream(
-                "POST", "/v1/tts/stream", json=payload
+                "POST", "/v1/tts/synthesize/rtc", json=payload
             ) as resp:
                 resp.raise_for_status()
                 for chunk in resp.iter_bytes():
@@ -135,7 +135,7 @@ class RTCTTSAdapter:
 
         try:
             async with self.async_client.stream(
-                "POST", "/v1/tts/stream", json=payload
+                "POST", "/v1/tts/synthesize/rtc", json=payload
             ) as response:
                 response.raise_for_status()
                 async for chunk in response.aiter_bytes():
@@ -156,7 +156,7 @@ class RTCTTSAdapter:
             model=self.model_name,
         )
         with self.sync_client.stream(
-            "POST", "/v1/tts/stream", json=payload
+            "POST", "/v1/tts/synthesize/rtc", json=payload
         ) as response:
             response.raise_for_status()
 

@@ -15,8 +15,20 @@ from asr.models.model_interface import (
 )
 from env import envs
 
+# 语言代码映射表
+LANGUAGE_NAMES = {
+    "zh": "Chinese",
+    "en": "English",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "yue": "Cantonese",
+    "auto": "Auto-detect",
+    "unknown": "Unknown",
+}
+
 
 class ASRModel(ASRModelInterface):
+
     def __init__(self, config_path: str, vad_path: str | None):
         """
         config_path: ASR model only config
@@ -110,8 +122,8 @@ class ASRModel(ASRModelInterface):
                 Timestamp(
                     text=parsed_text,
                     start=0,
-                    end=0,      # SenseVoice不提供时间戳
-                    words=[],   # SenseVoice不提供词级时间戳
+                    end=0,  # SenseVoice不提供时间戳
+                    words=[],  # SenseVoice不提供词级时间戳
                 )
             )
 
@@ -152,7 +164,7 @@ class ASRModel(ASRModelInterface):
         # 如果提取到了语言标记，置信度设为0.9，否则为0.0
         confidence = 0.9 if language else 0.0
 
-        return language or "unknown", confidence
+        return LANGUAGE_NAMES[language or "unknown"], confidence
 
     def _extract_language(self, raw_text: str) -> str:
         """从FunASR的输出中提取语言标记"""
@@ -210,6 +222,7 @@ class ASRModel(ASRModelInterface):
             device=self.device,
             description="FunASR提供的ASR模型",
             sample_rate=16000,
+            languages=["zh", "en", "yue", "ja", "ko"],
         )
 
     @staticmethod

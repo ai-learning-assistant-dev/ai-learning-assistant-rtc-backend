@@ -129,8 +129,8 @@ class RTCTTSRequest(BaseModel):
     model: str
 
 
-@app.post("/v1/tts/synthesize/stream")
-def stream_tts_handler(request: RTCTTSRequest):
+@app.post("/v1/tts/synthesize/rtc")
+def rtc_tts_handler(request: RTCTTSRequest):
     logging.info(f"收到RTC TTS请求: {request}")
     try:
         model_name = envs.default_tts_model if not request.model else request.model
@@ -205,10 +205,10 @@ async def get_available_models_info():
         raise HTTPException(status_code=500, detail=f"获取模型信息时出错: {str(e)}")
 
 
-@app.get("/v1/tts/models/info/stream", response_model=AvailableModelsResponse)
-async def get_available_stream_models_info(model_name: str):
+@app.get("/v1/tts/models/info/rtc", response_model=AvailableModelsResponse)
+async def get_available_rtc_models_info(model_name: str):
     """
-    get all TTS models that has the ability to be streamingly used
+    get all TTS models that has the ability to be used in RTC
     """
     all_model_details: List[ModelDetail] = []
     try:

@@ -2,6 +2,7 @@
 import json
 from typing import Union
 
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -20,6 +21,9 @@ class LLMMetaData(BaseModel):
 
 @app.post("/webrtc/metadata")
 def parse_input(metadata: LLMMetaData):
+    global fastrtc_register
+    if fastrtc_register is None:
+        raise HTTPException(status_code=500, detail="RTC service is not initialized")
     fastrtc_register.metadata.personaId = (
         metadata.personaId if metadata.personaId is not None else ""
     )
@@ -37,6 +41,9 @@ def parse_input(metadata: LLMMetaData):
 @app.get("/webrtc/text-stream")
 def rtc_text_stream(webrtc_id: str):
     async def output_stream():
+        global fastrtc_register
+        if fastrtc_register is None:
+            raise HTTPException(status_code=500, detail="RTC service is not initialized")
         async for output in fastrtc_register.stream.output_stream(webrtc_id):
             if len(output.args) == 1:
                 # 用户输入没有时间戳
@@ -52,6 +59,3 @@ def rtc_text_stream(webrtc_id: str):
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(output_stream(), media_type="text/event-stream")
-
-
-fastrtc_register.stream.mount(app)
