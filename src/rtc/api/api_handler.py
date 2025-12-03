@@ -14,9 +14,10 @@ from ..fastrtc_register import fastrtc_register
 class LLMMetaData(BaseModel):
     userId: str
     sectionId: str
-    personaId: Union[str, None] = None
+    personaId: str | None = None
     sessionId: str
-    modelName: Union[str, None] = None
+    modelName: str | None = None
+    daily: bool = False
 
 
 @app.post("/webrtc/metadata")
@@ -33,6 +34,7 @@ def parse_input(metadata: LLMMetaData):
     fastrtc_register.metadata.sectionId = metadata.sectionId
     fastrtc_register.metadata.sessionId = metadata.sessionId
     fastrtc_register.metadata.userId = metadata.userId
+    fastrtc_register.metadata.daily = metadata.daily
 
     print("获取metadata成功")
     return ""
@@ -43,7 +45,9 @@ def rtc_text_stream(webrtc_id: str):
     async def output_stream():
         global fastrtc_register
         if fastrtc_register is None:
-            raise HTTPException(status_code=500, detail="RTC service is not initialized")
+            raise HTTPException(
+                status_code=500, detail="RTC service is not initialized"
+            )
         async for output in fastrtc_register.stream.output_stream(webrtc_id):
             if len(output.args) == 1:
                 # 用户输入没有时间戳

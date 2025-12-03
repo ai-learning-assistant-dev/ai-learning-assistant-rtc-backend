@@ -17,6 +17,7 @@ class RTCLLMMetaData:
     personaId: str = ""
     sessionId: str = ""
     modelName: str = ""
+    daily: bool = False
 
 
 class LLMStreamError(Exception):
@@ -60,7 +61,9 @@ class FastRTCRegister:
         ):
             raise LLMStreamError("LLM metadata is incomplete")
         try:
-            resp = requests.post(
+            session = requests.Session()
+            session.trust_env = False
+            resp = session.post(
                 envs.llm_stream_url,
                 json={
                     "userId": self.metadata.userId,
@@ -70,7 +73,7 @@ class FastRTCRegister:
                     "sessionId": self.metadata.sessionId,
                     "useAudio": True,
                     "ttsOption": "kokoro",
-                    "daily": False if len(self.metadata.sectionId) else True,
+                    "daily": self.metadata.daily,
                     "modelName": self.metadata.modelName,
                 },
                 stream=True,
