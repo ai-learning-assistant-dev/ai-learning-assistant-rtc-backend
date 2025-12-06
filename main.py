@@ -266,6 +266,9 @@ class LLMMetaData(BaseModel):
     sessionId: str
     daily: bool
 
+@app.get("/webrtc/health")
+def health():
+    return "ok"
 
 @app.post("/webrtc/metadata")
 def parse_input(metadata: LLMMetaData):
