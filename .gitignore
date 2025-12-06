@@ -13,3 +13,5 @@ uv.lock
 # weight files
 *.pt
 *.pth
+models/*
+*.tar
