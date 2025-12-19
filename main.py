@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from requests.models import ReadTimeoutError
 
+from silero_vad.vad_adapter import SileroVADModelModelScope
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(name)s]: %(levelname)s | %(asctime)s | %(message)s",
@@ -206,6 +208,7 @@ stream = Stream(
     ReplyOnPause(
         realtime_conversation,
         algo_options=AlgoOptions(started_talking_threshold=0.5),
+        model=SileroVADModelModelScope(),
         # model=FSMNVad(),
         input_sample_rate=16000,
     ),

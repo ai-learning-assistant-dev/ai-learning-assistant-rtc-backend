@@ -3,11 +3,12 @@ import logging
 import re
 from collections.abc import AsyncGenerator, Generator
 from dataclasses import dataclass
+from os import path
 from typing import Protocol, TypeVar
 
 import numpy as np
 import torch
-from huggingface_hub import try_to_load_from_cache
+from modelscope.hub.snapshot_download import snapshot_download
 from numpy.typing import NDArray
 
 tts_logger = logging.getLogger("TTS")
@@ -60,10 +61,17 @@ class KokoroV11ZhTTSModel(TTSModel):
         try:
             from kokoro import KModel, KPipeline
 
-            cached_model_path = try_to_load_from_cache(
-                self.repo_id, KModel.MODEL_NAMES[self.repo_id]
+            cached_model_path = path.join(
+                snapshot_download(
+                    model_id=self.repo_id,
+                    allow_patterns=KModel.MODEL_NAMES[self.repo_id],
+                ),
+                KModel.MODEL_NAMES[self.repo_id],
             )
-            cached_config_path = try_to_load_from_cache(self.repo_id, "config.json")
+            cached_config_path = path.join(
+                snapshot_download(model_id=self.repo_id, allow_patterns="config.json"),
+                "config.json",
+            )
             self._model = (
                 KModel(
                     repo_id=self.repo_id,
@@ -95,15 +103,17 @@ class KokoroV11ZhTTSModel(TTSModel):
             tts_logger.info(f"Model initialization completed, device: {self.device}")
 
             tts_logger.info("Warming up model with test text...")
-            cached_config_voice = try_to_load_from_cache(
-                self.repo_id, "voices/zf_001.pt"
+            cached_config_voice = path.join(
+                snapshot_download(
+                    model_id=self.repo_id, allow_patterns="voices/zf_001.pt"
+                ),
+                "voices",
+                "zf_001.pt",
             )
             if cached_config_voice is None:
                 cached_config_voice = "zf_001"
 
-            test_result = next(
-                self._zh_pipeline("测试", voice=cached_config_voice, speed=1.0)
-            )
+            _ = next(self._zh_pipeline("测试", voice=cached_config_voice, speed=1.0))
             tts_logger.info("Model warmup completed")
         except ImportError as e:
             raise RuntimeError(
@@ -136,8 +146,12 @@ class KokoroV11ZhTTSModel(TTSModel):
             if not sentence.strip():
                 continue
 
-            cached_config_voice = try_to_load_from_cache(
-                self.repo_id, f"voices/{options.voice}.pt"
+            cached_config_voice = path.join(
+                snapshot_download(
+                    model_id=self.repo_id, allow_patterns=f"voices/{options.voice}.pt"
+                ),
+                "voices",
+                f"{options.voice}.pt",
             )
             if cached_config_voice is None:
                 cached_config_voice = options.voice
@@ -179,8 +193,12 @@ class KokoroV11ZhTTSModel(TTSModel):
             if not sentence.strip():
                 continue
 
-            cached_config_voice = try_to_load_from_cache(
-                self.repo_id, f"voices/{options.voice}.pt"
+            cached_config_voice = path.join(
+                snapshot_download(
+                    model_id=self.repo_id, allow_patterns=f"voices/{options.voice}.pt"
+                ),
+                "voices",
+                f"{options.voice}.pt",
             )
             if cached_config_voice is None:
                 cached_config_voice = options.voice
